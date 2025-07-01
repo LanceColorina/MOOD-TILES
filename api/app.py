@@ -14,7 +14,7 @@ sp_oauth = SpotifyOAuth(
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
     scope="user-read-recently-played",
-    cache_path=None  # ✅ Disable file cache (crashes on Vercel)
+    cache_path=None
 )
 
 @app.route('/')
@@ -52,11 +52,9 @@ def recent():
 
     return render_template('home.html', songs=songs)
 
-# Required for Vercel serverless
-def handler(environ, start_response):
-    return app(environ, start_response)
 
-# ✅ Required for Vercel serverless
-def handler(environ, start_response):
-    return app(environ, start_response)
+if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 5000))  # Render gives PORT env var
+    app.run(host='0.0.0.0', port=port, debug=False)
 
