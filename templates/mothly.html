@@ -1,0 +1,11 @@
+<h2>Your Mood in {{ month }}: {{ mood }}</h2>
+
+{% if songs %}
+  <ul>
+  {% for song in songs %}
+    <li>{{ song.name }} by {{ song.artist }} – {{ song.mood }}</li>
+  {% endfor %}
+  </ul>
+{% else %}
+  <p>No songs found for this month.</p>
+{% endif %}
