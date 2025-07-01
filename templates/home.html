@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Spotify Listening History</title>
+</head>
+<body>
+    <h1>Spotify Recently Played</h1>
+    {% if songs %}
+        <ul>
+        {% for song in songs %}
+            <li>{{ song.name }} by {{ song.artist }} (Played at {{ song.played_at }})</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <a href="{{ url_for('login') }}">Login with Spotify</a>
+    {% endif %}
+</body>
+</html>
