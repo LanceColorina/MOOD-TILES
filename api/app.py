@@ -1,5 +1,6 @@
 import os
 from flask import Flask, redirect, request, session, url_for, render_template
+from flask_session import Session
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
@@ -10,6 +11,13 @@ load_dotenv()
 
 app = Flask(__name__, static_folder='../static', template_folder='../templates')
 app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))
+app.config['SESSION_TYPE'] = 'filesystem'  # or 'redis' in production
+app.config['SESSION_FILE_DIR'] = './.flask_session/'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True  # for tamper-proofing
+app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))  # still required
+
+Session(app)  # binds Flask-Session to app
 
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
