@@ -1,5 +1,8 @@
 import os
-from flask import Flask, redirect, request, session, url_for, render_template
+import secrets
+from flask import Flask, redirect, request, session, render_template
+from flask_session import Session
+import redis
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
@@ -7,15 +10,21 @@ from collections import defaultdict
 from datetime import datetime
 from functools import wraps
 import calendar
+
 load_dotenv()
 
 # --- Flask App Setup ---
 app = Flask(__name__, static_folder='../static', template_folder='../templates')
 
-# --- Secret Key + Session Config (No duplication) ---
-app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))  # Only once
+# --- Redis Session Configuration ---
+app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))
+app.config['SESSION_TYPE'] = 'redis'
+app.config['SESSION_REDIS'] = redis.from_url(os.getenv("REDIS_URL"))
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+Session(app)
 
-
+# --- Spotify OAuth Setup ---
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
@@ -28,12 +37,23 @@ sp_oauth = SpotifyOAuth(
 def home():
     return render_template('home.html')
 
-
-
 @app.route('/login')
 def login():
-    session.clear()  # ⬅️ Clears previous session before new login
+    session.clear()
+    session['nonce'] = secrets.token_hex(16)
     return redirect(sp_oauth.get_authorize_url())
+
+@app.route('/callback')
+def callback():
+    code = request.args.get('code')
+    token_info = sp_oauth.get_access_token(code, as_dict=True)
+    session['token_info'] = token_info
+
+    sp = Spotify(auth=token_info['access_token'])
+    user = sp.current_user()
+    session['user_id'] = user['id']
+
+    return redirect('/recent')
 
 def login_required(view_func):
     @wraps(view_func)
@@ -42,90 +62,51 @@ def login_required(view_func):
         user_id = session.get('user_id')
         if not token_info or not user_id:
             return redirect('/login')
-
         try:
             sp = Spotify(auth=token_info['access_token'])
             current_user = sp.current_user()
-
-            # Reject mismatched sessions
             if current_user['id'] != user_id:
                 session.clear()
                 return redirect('/login')
-
             return view_func(sp, *args, **kwargs)
-        except:
+        except Exception:
             session.clear()
             return redirect('/login')
     return wrapper
-
-
-@app.route('/callback')
-def callback():
-    code = request.args.get('code')
-    token_info = sp_oauth.get_access_token(code, as_dict=True)
-    session['token_info'] = token_info
-
-    # Get user ID and store in session
-    sp = Spotify(auth=token_info['access_token'])
-    user_profile = sp.current_user()
-    session['user_id'] = user_profile['id']
-
-    return redirect('/recent')
 
 @app.route('/recent')
 @login_required
 def recent(sp):
     results = sp.current_user_recently_played(limit=10)
-
-    songs = []
-    for item in results['items']:
-        track = item['track']
-        songs.append({
-            'name': track['name'],
-            'artist': track['artists'][0]['name'],
-            'played_at': item['played_at']
-        })
-
+    songs = [{
+        'name': item['track']['name'],
+        'artist': item['track']['artists'][0]['name'],
+        'played_at': item['played_at']
+    } for item in results['items']]
     return render_template('home.html', songs=songs)
 
 @app.route('/monthly', methods=['GET', 'POST'])
 @login_required
 def monthly(sp):
     if request.method == 'POST':
-        selected_month = request.form['month']  # format: YYYY-MM
+        selected_month = request.form['month']  # YYYY-MM
         results = sp.current_user_recently_played(limit=50)
-
-        # Prepare full calendar days for selected month
         year, month = map(int, selected_month.split('-'))
         num_days = calendar.monthrange(year, month)[1]
-        month_days = [datetime(year, month, day).strftime('%Y-%m-%d') for day in range(1, num_days + 1)]
+        month_days = [datetime(year, month, d).strftime('%Y-%m-%d') for d in range(1, num_days + 1)]
 
-        # Group moods by date
         daily_moods = defaultdict(list)
         for item in results['items']:
-            played_at = datetime.fromisoformat(item['played_at'].replace('Z', '+00:00'))
-            if played_at.strftime('%Y-%m') == selected_month:
-                track = item['track']
-                mood = classify_mood(track)
-                day = played_at.strftime('%Y-%m-%d')
-                daily_moods[day].append(mood)
+            dt = datetime.fromisoformat(item['played_at'].replace('Z', '+00:00'))
+            if dt.strftime('%Y-%m') == selected_month:
+                mood = classify_mood(item['track'])
+                daily_moods[dt.strftime('%Y-%m-%d')].append(mood)
 
-        # Final mood grid with full month
         mood_grid = []
         for day in month_days:
-            mood_list = daily_moods.get(day, [])
-            if mood_list:
-                mood_counts = defaultdict(int)
-                for mood in mood_list:
-                    mood_counts[mood] += 1
-                dominant = max(mood_counts, key=mood_counts.get)
-            else:
-                dominant = 'Unknown 😐'
-
-            mood_grid.append({
-                'day': day,
-                'mood': dominant
-            })
+            moods = daily_moods.get(day, [])
+            dominant = max(moods, key=moods.count) if moods else 'Unknown 😐'
+            mood_grid.append({'day': day, 'mood': dominant})
 
         return render_template(
             'monthly.html',
@@ -133,28 +114,24 @@ def monthly(sp):
             month=selected_month,
             year=year,
             month_name=calendar.month_name[month],
-            datetime=datetime  # ← this line is the fix
+            datetime=datetime
         )
-
     return render_template('month_form.html')
 
 def classify_mood(track):
     name = track['name'].lower()
-    # Basic mood keywords (for demo)
-    if any(word in name for word in ['happy', 'love', 'sunshine']):
+    if any(w in name for w in ['happy', 'love', 'sunshine']):
         return 'Happy 😊'
-    elif any(word in name for word in ['sad', 'blue', 'tears']):
+    if any(w in name for w in ['sad', 'blue', 'tears']):
         return 'Sad 😢'
-    elif any(word in name for word in ['chill', 'calm', 'lofi']):
+    if any(w in name for w in ['chill', 'calm', 'lofi']):
         return 'Relaxed 🧘'
-    elif any(word in name for word in ['fire', 'lit', 'hype']):
+    if any(w in name for w in ['fire', 'lit', 'hype']):
         return 'Energetic 🔥'
-    else:
-        return 'Neutral 😐'
-    
-    
+    return 'Neutral 😐'
+
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('PORT', 5000))  # Render gives PORT env var
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
