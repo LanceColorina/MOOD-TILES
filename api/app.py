@@ -102,7 +102,8 @@ def monthly():
             mood_grid=mood_grid,
             month=selected_month,
             year=year,
-            month_name=calendar.month_name[month]
+            month_name=calendar.month_name[month],
+            datetime=datetime  # ← this line is the fix
         )
 
     return render_template('month_form.html')
