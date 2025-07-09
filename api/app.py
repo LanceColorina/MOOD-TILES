@@ -9,15 +9,18 @@ from datetime import datetime
 import calendar
 load_dotenv()
 
+# --- Flask App Setup ---
 app = Flask(__name__, static_folder='../static', template_folder='../templates')
-app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))
-app.config['SESSION_TYPE'] = 'filesystem'  # or 'redis' in production
-app.config['SESSION_FILE_DIR'] = './.flask_session/'
-app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_USE_SIGNER'] = True  # for tamper-proofing
-app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))  # still required
 
-Session(app)  # binds Flask-Session to app
+# --- Secret Key + Session Config (No duplication) ---
+app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))  # Only once
+app.config['SESSION_TYPE'] = 'filesystem'  # Or 'redis' in production
+app.config['SESSION_FILE_DIR'] = './.flask_session/'  # Folder where sessions are saved
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+Session(app)  # Bind server-side session manager to app
 
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
