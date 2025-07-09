@@ -1,11 +1,23 @@
-<h2>Your Mood in {{ month }}: {{ mood }}</h2>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Monthly Mood Grid</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>Mood Grid for {{ month }}</h1>
 
-{% if songs %}
-  <ul>
-  {% for song in songs %}
-    <li>{{ song.name }} by {{ song.artist }} – {{ song.mood }}</li>
-  {% endfor %}
-  </ul>
-{% else %}
-  <p>No songs found for this month.</p>
-{% endif %}
+  {% if mood_grid %}
+    <div class="grid">
+      {% for entry in mood_grid %}
+        <div class="cell {{ entry.mood.split(' ')[0] }}" title="{{ entry.day }} – {{ entry.mood }}"></div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No mood data for this month.</p>
+  {% endif %}
+
+  <a href="/">← Back to Home</a>
+</body>
+</html>

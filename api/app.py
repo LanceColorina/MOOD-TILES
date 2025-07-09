@@ -3,6 +3,8 @@ from flask import Flask, redirect, request, session, url_for, render_template
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
+from collections import defaultdict
+from datetime import datetime
 
 load_dotenv()
 
@@ -61,29 +63,32 @@ def monthly():
             return redirect('/login')
 
         sp = Spotify(auth=token_info['access_token'])
-        results = sp.current_user_recently_played(limit=50)  # Spotify only gives 50 last tracks
+        results = sp.current_user_recently_played(limit=50)
 
-        from datetime import datetime
-
-        month_songs = []
+        # Group songs by day
+        daily_moods = defaultdict(list)
         for item in results['items']:
             played_at = datetime.fromisoformat(item['played_at'].replace('Z', '+00:00'))
             if played_at.strftime('%Y-%m') == selected_month:
                 track = item['track']
-                mood = classify_mood(track)  # ⬅️ Implement this next
-                month_songs.append({
-                    'name': track['name'],
-                    'artist': track['artists'][0]['name'],
-                    'mood': mood
-                })
+                mood = classify_mood(track)
+                day = played_at.strftime('%Y-%m-%d')
+                daily_moods[day].append(mood)
 
-        # Get mood summary
-        mood_counts = {}
-        for s in month_songs:
-            mood_counts[s['mood']] = mood_counts.get(s['mood'], 0) + 1
-        dominant_mood = max(mood_counts, key=mood_counts.get) if mood_counts else "Unknown"
+        # Determine dominant mood per day
+        mood_grid = []
+        for day in sorted(daily_moods):
+            mood_counts = defaultdict(int)
+            for mood in daily_moods[day]:
+                mood_counts[mood] += 1
+            dominant = max(mood_counts, key=mood_counts.get)
+            mood_grid.append({'day': day, 'mood': dominant})
 
-        return render_template('monthly.html', songs=month_songs, month=selected_month, mood=dominant_mood)
+        return render_template(
+            'monthly.html',
+            mood_grid=mood_grid,
+            month=selected_month
+        )
 
     return render_template('month_form.html')
 
