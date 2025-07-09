@@ -47,11 +47,11 @@ def login():
 def callback():
     code = request.args.get('code')
     token_info = sp_oauth.get_access_token(code, as_dict=True)
-    session['token_info'] = token_info
+    session['token_info'] = token_info  # 🔐 store token in session
 
     sp = Spotify(auth=token_info['access_token'])
     user = sp.current_user()
-    session['user_id'] = user['id']
+    session['user_id'] = user['id']  # 🔐 store user id in session
 
     return redirect('/recent')
 
@@ -77,6 +77,7 @@ def login_required(view_func):
 @app.route('/recent')
 @login_required
 def recent(sp):
+    print("📌 Showing recent for user:", session.get('user_id'))
     results = sp.current_user_recently_played(limit=10)
     songs = [{
         'name': item['track']['name'],
