@@ -6,9 +6,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <a href="/monthly">Check your monthly mood ➜</a>
+    
     <h1>Spotify Recently Played</h1>
     {% if songs %}
+    <a href="/monthly">Check your monthly mood ➜</a>
         <ul>
         {% for song in songs %}
             <li>{{ song.name }} by {{ song.artist }} (Played at {{ song.played_at }})</li>
