@@ -36,6 +36,7 @@ def home():
 
 @app.route('/login')
 def login():
+    session.clear()  # ⬅️ Clears previous session before new login
     return redirect(sp_oauth.get_authorize_url())
 
 @app.route('/callback')
@@ -43,6 +44,12 @@ def callback():
     code = request.args.get('code')
     token_info = sp_oauth.get_access_token(code, as_dict=True)
     session['token_info'] = token_info
+
+    # ✅ Get current Spotify user info and store their ID in session
+    sp = Spotify(auth=token_info['access_token'])
+    user_profile = sp.current_user()
+    session['user_id'] = user_profile['id']
+
     return redirect('/recent')
 
 @app.route('/recent')
@@ -52,6 +59,12 @@ def recent():
         return redirect('/login')
 
     sp = Spotify(auth=token_info['access_token'])
+    current_user = sp.current_user()
+
+    # 🛑 Reject mismatched user tokens
+    if current_user['id'] != session.get('user_id'):
+        session.clear()
+        return redirect('/login')
     results = sp.current_user_recently_played(limit=10)
 
     songs = []
@@ -74,6 +87,12 @@ def monthly():
             return redirect('/login')
 
         sp = Spotify(auth=token_info['access_token'])
+        current_user = sp.current_user()
+
+        # 🛑 Reject mismatched user tokens
+        if current_user['id'] != session.get('user_id'):
+            session.clear()
+            return redirect('/login')
         results = sp.current_user_recently_played(limit=50)
 
         # Prepare full calendar days for selected month
