@@ -6,6 +6,7 @@ from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 from collections import defaultdict
 from datetime import datetime
+from functools import wraps
 import calendar
 load_dotenv()
 
@@ -34,10 +35,36 @@ sp_oauth = SpotifyOAuth(
 def home():
     return render_template('home.html')
 
+
+
 @app.route('/login')
 def login():
     session.clear()  # ⬅️ Clears previous session before new login
     return redirect(sp_oauth.get_authorize_url())
+
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        token_info = session.get('token_info')
+        user_id = session.get('user_id')
+        if not token_info or not user_id:
+            return redirect('/login')
+
+        try:
+            sp = Spotify(auth=token_info['access_token'])
+            current_user = sp.current_user()
+
+            # Reject mismatched sessions
+            if current_user['id'] != user_id:
+                session.clear()
+                return redirect('/login')
+
+            return view_func(sp, *args, **kwargs)
+        except:
+            session.clear()
+            return redirect('/login')
+    return wrapper
+
 
 @app.route('/callback')
 def callback():
@@ -45,7 +72,7 @@ def callback():
     token_info = sp_oauth.get_access_token(code, as_dict=True)
     session['token_info'] = token_info
 
-    # ✅ Get current Spotify user info and store their ID in session
+    # Get user ID and store in session
     sp = Spotify(auth=token_info['access_token'])
     user_profile = sp.current_user()
     session['user_id'] = user_profile['id']
@@ -53,18 +80,8 @@ def callback():
     return redirect('/recent')
 
 @app.route('/recent')
-def recent():
-    token_info = session.get('token_info')
-    if not token_info:
-        return redirect('/login')
-
-    sp = Spotify(auth=token_info['access_token'])
-    current_user = sp.current_user()
-
-    # 🛑 Reject mismatched user tokens
-    if current_user['id'] != session.get('user_id'):
-        session.clear()
-        return redirect('/login')
+@login_required
+def recent(sp):
     results = sp.current_user_recently_played(limit=10)
 
     songs = []
@@ -79,20 +96,10 @@ def recent():
     return render_template('home.html', songs=songs)
 
 @app.route('/monthly', methods=['GET', 'POST'])
-def monthly():
+@login_required
+def monthly(sp):
     if request.method == 'POST':
         selected_month = request.form['month']  # format: YYYY-MM
-        token_info = session.get('token_info')
-        if not token_info:
-            return redirect('/login')
-
-        sp = Spotify(auth=token_info['access_token'])
-        current_user = sp.current_user()
-
-        # 🛑 Reject mismatched user tokens
-        if current_user['id'] != session.get('user_id'):
-            session.clear()
-            return redirect('/login')
         results = sp.current_user_recently_played(limit=50)
 
         # Prepare full calendar days for selected month
