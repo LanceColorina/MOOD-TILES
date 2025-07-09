@@ -65,7 +65,12 @@ def monthly():
         sp = Spotify(auth=token_info['access_token'])
         results = sp.current_user_recently_played(limit=50)
 
-        # Group songs by day
+        # Prepare full calendar days for selected month
+        year, month = map(int, selected_month.split('-'))
+        num_days = calendar.monthrange(year, month)[1]
+        month_days = [datetime(year, month, day).strftime('%Y-%m-%d') for day in range(1, num_days + 1)]
+
+        # Group moods by date
         daily_moods = defaultdict(list)
         for item in results['items']:
             played_at = datetime.fromisoformat(item['played_at'].replace('Z', '+00:00'))
@@ -75,19 +80,29 @@ def monthly():
                 day = played_at.strftime('%Y-%m-%d')
                 daily_moods[day].append(mood)
 
-        # Determine dominant mood per day
+        # Final mood grid with full month
         mood_grid = []
-        for day in sorted(daily_moods):
-            mood_counts = defaultdict(int)
-            for mood in daily_moods[day]:
-                mood_counts[mood] += 1
-            dominant = max(mood_counts, key=mood_counts.get)
-            mood_grid.append({'day': day, 'mood': dominant})
+        for day in month_days:
+            mood_list = daily_moods.get(day, [])
+            if mood_list:
+                mood_counts = defaultdict(int)
+                for mood in mood_list:
+                    mood_counts[mood] += 1
+                dominant = max(mood_counts, key=mood_counts.get)
+            else:
+                dominant = 'Unknown 😐'
+
+            mood_grid.append({
+                'day': day,
+                'mood': dominant
+            })
 
         return render_template(
             'monthly.html',
             mood_grid=mood_grid,
-            month=selected_month
+            month=selected_month,
+            year=year,
+            month_name=calendar.month_name[month]
         )
 
     return render_template('month_form.html')

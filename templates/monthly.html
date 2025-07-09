@@ -2,22 +2,58 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Monthly Mood Grid</title>
+  <title>Mood Calendar – {{ month_name }} {{ year }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 20px;
+    }
+
+    .day-cell {
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      font-size: 10px;
+      text-align: center;
+      padding-top: 4px;
+      position: relative;
+    }
+
+    .day-cell:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 2px 6px;
+      font-size: 10px;
+      z-index: 2;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+  </style>
 </head>
 <body>
-  <h1>Mood Grid for {{ month }}</h1>
+  <h1>{{ month_name }} {{ year }} – Mood Calendar</h1>
+  <div class="calendar">
+    {% set first_day = mood_grid[0]['day'] %}
+    {% set start_weekday = datetime.strptime(first_day, "%Y-%m-%d").weekday() %}
 
-  {% if mood_grid %}
-    <div class="grid">
-      {% for entry in mood_grid %}
-        <div class="cell {{ entry.mood.split(' ')[0] }}" title="{{ entry.day }} – {{ entry.mood }}"></div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>No mood data for this month.</p>
-  {% endif %}
+    {# Add empty cells before the first day if needed (to align weekday) #}
+    {% for _ in range(start_weekday) %}
+      <div></div>
+    {% endfor %}
 
+    {# Now display each day as a mood cell #}
+    {% for entry in mood_grid %}
+      <div class="day-cell {{ entry.mood.split(' ')[0] }}" data-tooltip="{{ entry.day }} – {{ entry.mood }}">
+        {{ entry.day[-2:] }}
+      </div>
+    {% endfor %}
+  </div>
   <a href="/">← Back to Home</a>
 </body>
 </html>
