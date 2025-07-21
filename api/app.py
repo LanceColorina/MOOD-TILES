@@ -2,7 +2,6 @@ import os
 import secrets
 from flask import Flask, redirect, request, session, render_template
 from flask_session import Session
-import redis
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
@@ -17,10 +16,9 @@ load_dotenv()
 # --- Flask App Setup ---
 app = Flask(__name__, static_folder='../static', template_folder='../templates')
 
-# --- Redis Session Configuration ---
+# --- Session Configuration (using filesystem) ---
 app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))
-app.config['SESSION_TYPE'] = 'redis'
-app.config['SESSION_REDIS'] = redis.from_url(os.getenv("REDIS_URL"))
+app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
 Session(app)
