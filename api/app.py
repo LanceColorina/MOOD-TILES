@@ -95,25 +95,37 @@ def login_required(view_func):
 
     return wrapper
 
+
 @app.route('/recent')
 @login_required
 def recent(sp):
     try:
+        # Fetch up to 50 recent songs
         results = sp.current_user_recently_played(limit=10)
-        songs = []
+        all_songs = []
         for item in results['items']:
             played_at_iso = item['played_at']
             dt = datetime.fromisoformat(played_at_iso.replace('Z', '+00:00'))
             formatted_played_at = dt.strftime('%B %d, %Y, %I:%M %p')
-            songs.append({
+            all_songs.append({
                 'name': item['track']['name'],
                 'artist': item['track']['artists'][0]['name'],
                 'played_at': formatted_played_at
             })
-        return render_template('home.html', songs=songs)
+
+        # Pagination
+        page = int(request.args.get('page', 1))
+        per_page = 5
+        total_pages = (len(all_songs) + per_page - 1) // per_page
+        start = (page - 1) * per_page
+        end = start + per_page
+        songs = all_songs[start:end]
+
+        return render_template('home.html', songs=songs, page=page, total_pages=total_pages)
     except Exception as e:
         print("Error fetching recent tracks:", e)
         return redirect('/login')
+
 
 @app.route('/monthly', methods=['GET', 'POST'])
 @login_required

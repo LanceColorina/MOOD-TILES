@@ -19,6 +19,19 @@
                     </div>
                 {% endfor %}
                 </div>
+
+                <div class="pagination">
+                {% if page > 1 %}
+                    <a href="{{ url_for('recent') }}?page={{ page - 1 }}">← Previous</a>
+                {% endif %}
+
+                <span>Page {{ page }} of {{ total_pages }}</span>
+
+                {% if page < total_pages %}
+                    <a href="{{ url_for('recent') }}?page={{ page + 1 }}">Next →</a>
+                {% endif %}
+            </div>
+            
             {% else %}
                 <a href="{{ url_for('login') }}">Login with Spotify</a>
             {% endif %}
