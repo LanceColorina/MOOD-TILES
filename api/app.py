@@ -100,11 +100,16 @@ def login_required(view_func):
 def recent(sp):
     try:
         results = sp.current_user_recently_played(limit=10)
-        songs = [{
-            'name': item['track']['name'],
-            'artist': item['track']['artists'][0]['name'],
-            'played_at': item['played_at']
-        } for item in results['items']]
+        songs = []
+        for item in results['items']:
+            played_at_iso = item['played_at']
+            dt = datetime.fromisoformat(played_at_iso.replace('Z', '+00:00'))
+            formatted_played_at = dt.strftime('%B %d, %Y, %I:%M %p')
+            songs.append({
+                'name': item['track']['name'],
+                'artist': item['track']['artists'][0]['name'],
+                'played_at': formatted_played_at
+            })
         return render_template('home.html', songs=songs)
     except Exception as e:
         print("Error fetching recent tracks:", e)

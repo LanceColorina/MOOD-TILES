@@ -1,6 +1,10 @@
-<h2>Select a Month</h2>
-<form method="POST">
-  <label for="month">Month:</label>
-  <input type="month" name="month" required>
-  <button type="submit">Analyze</button>
-</form>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<div class="spotify-outer">
+  <h2 class="spotify-font">Select a Month</h2>
+  <form method="POST">
+    <label class="spotify-font" for="month">Month:</label>
+    <input type="month" name="month" required>
+    <button type="submit" class="analyze-button">Analyze</button>
+  </form>
+</div>
