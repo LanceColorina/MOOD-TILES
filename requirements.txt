@@ -3,3 +3,5 @@ flask-session
 redis
 spotipy
 python-dotenv
+requests
+cryptography
