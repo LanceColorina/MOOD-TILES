@@ -1,5 +1,7 @@
 import os
 import secrets
+import requests
+import time
 from flask import Flask, redirect, request, session, render_template
 from flask_session import Session
 from spotipy import Spotify
@@ -138,11 +140,30 @@ def monthly(sp):
             num_days = calendar.monthrange(year, month)[1]
             month_days = [datetime(year, month, d).strftime('%Y-%m-%d') for d in range(1, num_days + 1)]
 
+            song_ids = []
+            for item in results['items']:
+                song_ids.append(item['track']['id'])
+                # print(item['track']['id'])
+
+            name, artist = [], []
+            for item in results['items']:
+                name.append(item['track']['name'])
+                artist.append(item['track']['artists'][0]['name'])
+
             daily_moods = defaultdict(list)
             for item in results['items']:
                 dt = datetime.fromisoformat(item['played_at'].replace('Z', '+00:00'))
                 if dt.strftime('%Y-%m') == selected_month:
-                    mood = classify_mood(item['track'])
+
+                    # gets the id of the track/song
+                    deezer_id = get_deezer_id(item['track']['name'], item['track']['artists'][0]['name'])
+                    
+                    # gets the metrics of the track/song
+                    # print(deezer_id)
+                    metrics = get_deezer_metrics(deezer_id) # returns the gain lang
+                    # print(metrics)
+                    mood = classify_mood(metrics)
+                    print(mood)
                     daily_moods[dt.strftime('%Y-%m-%d')].append(mood)
 
             mood_grid = []
@@ -161,21 +182,49 @@ def monthly(sp):
             )
         except Exception as e:
             print("Error generating mood grid:", e)
+            import traceback; traceback.print_exc()
             return redirect('/login')
 
     return render_template('month_form.html')
 
+def get_deezer_id(name, artist):
+    q = f"{name} {artist}"
+    r = requests.get("https://api.deezer.com/search", params={"q": q})
+    results = r.json()["data"]
+    # pick the first match
+    deezer_id = results[0]["id"]
+    return deezer_id
+
+def get_deezer_metrics(deezer_id):
+    url = f"https://api.deezer.com/track/{deezer_id}"
+    resp = requests.get(url)
+    resp.raise_for_status()
+    data = resp.json()
+    return {
+        "bpm": data.get("bpm"),
+        "gain": data.get("gain"),
+        "isrc": data.get("isrc"),
+        "preview_url": data.get("preview")
+}
+
 def classify_mood(track):
-    name = track['name'].lower()
-    if any(w in name for w in ['happy', 'love', 'sunshine']):
-        return 'Happy 😊'
-    if any(w in name for w in ['sad', 'blue', 'tears']):
-        return 'Sad 😢'
-    if any(w in name for w in ['chill', 'calm', 'lofi']):
-        return 'Relaxed 🧘'
-    if any(w in name for w in ['fire', 'lit', 'hype']):
+    gain = track.get('gain')
+    if gain is None:
+        return 'Unknown 🤷'
+    if gain >  3:
+        return 'Angry 😠'
+    elif gain >  0:
         return 'Energetic 🔥'
-    return 'Neutral 😐'
+    elif gain > -2:
+        return 'Happy 😊'
+    elif gain > -6:
+        return 'Chill 😎'
+    elif gain > -10:
+        return 'Calm 🧘'
+    elif gain > -14:
+        return 'Sad 😢'
+    else:
+        return 'Depressed 😞'
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

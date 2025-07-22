@@ -76,10 +76,12 @@ h1 {
 /* Pastel mood colors */
 .Happy    { background-color: #fff9c4; } /* light yellow */
 .Sad      { background-color: #bbdefb; } /* light blue */
-.Relaxed  { background-color: #c8e6c9; } /* light green */
-.Energetic{ background-color: #ffcdd2; } /* light red */
+.Relaxed, .Calm, .Chill  { background-color: #c8e6c9; } /* light green */
+.Energetic { background-color: #FFB347; } /* light orange */
 .Neutral  { background-color: #e0e0e0; } /* light gray */
 .Unknown  { background-color: #eeeeee; } /* very light gray */
+.Depressed { background-color: #2e2e2e; } /* black */
+.Angry    { background-color: #ffcdd2; } /* light red */
 
 a {
   display: block;
