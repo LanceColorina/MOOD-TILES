@@ -185,7 +185,7 @@ def logout():
     return redirect('/')
 
 # --- Initialize Database ---
-@app.before_first_request
+@app.before_request
 def create_tables():
     """Create database tables on first request"""
     db.create_all()

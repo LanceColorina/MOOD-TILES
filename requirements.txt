@@ -5,3 +5,5 @@ spotipy
 python-dotenv
 requests
 cryptography
+flask_sqlalchemy
+sqlalchemy.orm

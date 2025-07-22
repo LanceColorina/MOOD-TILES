@@ -2,4 +2,5 @@
 # venv\Scripts\activate
 # pip install -r requirements.txt
 # pip install requests
-# python -m api.app
+# cd api
+# python -m app.py

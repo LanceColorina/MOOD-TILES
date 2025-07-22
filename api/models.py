@@ -1,3 +1,6 @@
+"""
+Database models for Spotify Mood Tracker
+"""
 import os
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
