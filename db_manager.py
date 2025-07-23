@@ -18,7 +18,7 @@ from collections import Counter
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import your app and models
-from app import app
+from api.app import app
 from models import db, User, Track, Listen
 
 def init_db():
