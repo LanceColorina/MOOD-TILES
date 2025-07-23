@@ -86,7 +86,7 @@ class Track(db.Model):
     spotify_id = db.Column(db.String(100), unique=True, nullable=False)
     name = db.Column(db.String(200), nullable=False)
     artist = db.Column(db.String(200), nullable=False)
-    deezer_id = db.Column(db.Integer, nullable=True)
+    deezer_id = db.Column(db.BigInteger, nullable=True)
     gain = db.Column(db.Float, nullable=True)
     mood = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

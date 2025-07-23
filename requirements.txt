@@ -7,3 +7,9 @@ requests
 cryptography
 flask_sqlalchemy
 sqlalchemy.orm
+
+# PostgreSQL adapter
+psycopg2-binary==2.9.7
+
+# Production WSGI server
+gunicorn==21.2.0
