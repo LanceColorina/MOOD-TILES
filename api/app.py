@@ -9,9 +9,9 @@ from datetime import datetime
 import calendar
 
 # Import our custom modules
-from models import db, User, Track, Listen
-from database import save_listening_history, get_user_recent_listens, get_monthly_listens, get_user_stats
-from auth import create_or_update_user, login_required
+from .models import db, User, Track, Listen
+from .database import save_listening_history, get_user_recent_listens, get_monthly_listens, get_user_stats
+from .auth import create_or_update_user, login_required
 
 # --- Load environment variables ---
 load_dotenv()
