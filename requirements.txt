@@ -9,7 +9,7 @@ flask_sqlalchemy
 sqlalchemy.orm
 
 # PostgreSQL adapter
-psycopg2-binary==2.9.7
+psycopg2-binary==2.9.9
 
 # Production WSGI server
 gunicorn==21.2.0
