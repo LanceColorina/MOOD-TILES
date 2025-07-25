@@ -3,7 +3,7 @@ Database helper functions for Spotify Mood Tracker
 """
 import requests
 from datetime import datetime
-from models import db, User, Track, Listen
+from api.models import db, User, Track, Listen
 
 def get_deezer_id(name, artist):
     """Get Deezer track ID for a song"""

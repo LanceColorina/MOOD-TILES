@@ -5,7 +5,7 @@ from functools import wraps
 from datetime import datetime, timedelta
 from flask import session, redirect
 from spotipy import Spotify
-from models import db, User
+from api.models import db, User
 
 def create_or_update_user(spotify_user_info, token_info):
     """

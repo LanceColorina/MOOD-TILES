@@ -19,7 +19,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import your app and models
 from api.app import app
-from models import db, User, Track, Listen
+from api.models import db, User, Track, Listen
 
 def init_db():
     """Initialize the database and create all tables"""
