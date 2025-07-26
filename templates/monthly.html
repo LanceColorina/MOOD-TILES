@@ -4,32 +4,140 @@
   <meta charset="UTF-8">
   <title>Mood Calendar – {{ month_name }} {{ year }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
 </head>
+<div id="globalSpinnerOverlay" style="display: none;" class="spinner-overlay">
+  <div class="spinner"></div>
+</div>
+
 <body>
   <div class="spotify-outer">
     <h1>{{ month_name }} {{ year }} – Mood Calendar</h1>
 
     <div class="calendar">
-      {# Weekday labels #}
       {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
         <div class="weekday-label">{{ day }}</div>
       {% endfor %}
 
-      {# First day alignment padding #}
       {% set first_day = mood_grid[0]['day'] %}
       {% set start_weekday = datetime.strptime(first_day, "%Y-%m-%d").weekday() %}
       {% for _ in range(start_weekday) %}
         <div></div>
       {% endfor %}
 
-      {# Mood squares #}
-      {% for entry in mood_grid %}
-        <div class="day-cell {{ entry.mood.split(' ')[0] }}" data-tooltip="{{ entry.day }} – {{ entry.mood }}">
-          <div class="day-number">{{ entry.day[-2:] }}</div>
+      {% if mood_grid %}
+        {% for entry in mood_grid %}
+          <div class="day-cell {{ entry.mood.split(' ')[0] }}" 
+              data-day="{{ entry.day }}"
+              data-tooltip="{{ entry.day }} – {{ entry.mood }}"
+              onclick="fetchDaySongs('{{ entry.day }}')">
+            <div class="day-number">{{ entry.day[-2:] }}</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>No mood data available for this month.</p>
+      {% endif %}
+
+    <div id="dayModalOverlay" class="modal-overlay" style="display: none;">
+      <div class="tracks-content">
+        <span class="monthlyclose" onclick="closeDayModal()">&times;</span>
+        <div class="modal-body">
+          <h2>Songs played on <span id="dayModalDate"></span></h2>
+          <div id="loadingSpinner" class="spinner" style="display: none;"></div> 
+          <div id="daySongsList" class="song-list"></div>
+          <div class="pagination-controls">
+            <a id="prevPage" onclick="changePage(-1)" class="pagination-buttons">← Previous</a>
+            <div id="pageIndicator" class="page-indicator">Page 1 of 1</div>
+            <a id="nextPage" onclick="changePage(1)" class="pagination-buttons">Next →</a>
+          </div>
         </div>
-      {% endfor %}
+      </div>
     </div>
 
-    <a href="/">← Back to Home</a>
+
+    </div>
+    <p class="calendar-note">You may click a date to see your song history.</p>
+    <a href="/">&larr; Back to Home</a>
   </div>
 </body>
+
+<script>
+let currentPage = 1;
+const songsPerPage = 5;
+let allSongs = [];
+
+function fetchDaySongs(date) {
+  const spinnerOverlay = document.getElementById('globalSpinnerOverlay');
+  const modal = document.getElementById('dayModalOverlay');
+  const list = document.getElementById('daySongsList');
+
+  spinnerOverlay.style.display = 'flex';
+  list.innerHTML = '';
+const dateObj = new Date(date);
+const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+const formatted = dateObj.toLocaleDateString('en-US', options);
+
+document.getElementById('dayModalDate').textContent = formatted;
+
+  fetch(`/api/day-songs?date=${date}`)
+    .then(res => {
+      if (!res.ok) throw new Error('Network response was not ok');
+      return res.json();
+    })
+    .then(data => {
+      allSongs = data;
+      currentPage = 1;
+      renderSongsPage();
+      modal.style.display = 'flex';
+    })
+    .catch(err => {
+      console.error('Error fetching day songs:', err);
+      modal.style.display = 'flex';
+      list.innerHTML = "<p class='error'>Failed to load songs for this day.</p>";
+    })
+    .finally(() => {
+      spinnerOverlay.style.display = 'none';
+    });
+}
+
+function renderSongsPage() {
+  const list = document.getElementById('daySongsList');
+  const start = (currentPage - 1) * songsPerPage;
+  const end = start + songsPerPage;
+  const songsToShow = allSongs.slice(start, end);
+
+  if (songsToShow.length === 0) {
+    list.innerHTML = "<p>No songs played on this day.</p>";
+    return;
+  }
+
+  list.innerHTML = songsToShow.map(song => `
+    <div class="song-card ${song.mood}" style="font-size: 2rem;">
+      <div class="song-card-header">
+        <h3 class="song-title" style="font-size: 1.4rem;">${song.name}</h3>
+      </div>
+      <div class="song-artist style="font-size: 1.5rem;">by ${song.artist}</div>
+      <div class="song-played-at style="font-size: 1.5rem;">🕓 ${song.played_at}</div>
+      <div class="song-mood-label style="font-size: 1.5rem;">Mood: ${song.mood}</div>
+    </div>
+  `).join('');
+
+    const totalPages = Math.ceil(allSongs.length / songsPerPage);
+
+  document.getElementById('pageIndicator').textContent = `Page ${currentPage} of ${totalPages}`;
+  document.getElementById('prevPage').classList.toggle('disabled', currentPage === 1);
+  document.getElementById('nextPage').classList.toggle('disabled', currentPage >= totalPages);
+
+
+}
+
+function changePage(direction) {
+  currentPage += direction;
+  renderSongsPage();
+}
+
+function closeDayModal() {
+  document.getElementById('dayModalOverlay').style.display = 'none';
+}
+</script>
+</html>

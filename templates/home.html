@@ -6,35 +6,131 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="spotify-outer">
-        <h1>Spotify Recently Played</h1>
-            {% if songs %}
-            <a href="/monthly">Check your monthly mood ➜</a>
-                <div class="song-list">
-                {% for song in songs %}
-                    <div class="song-card">
-                        <div class="song-title">{{ song.name }}</div>
-                        <div class="song-artist">by {{ song.artist }}</div>
-                        <div class="song-played-at">Played at {{ song.played_at }}</div>
-                    </div>
-                {% endfor %}
-                </div>
+        {% if session.user_id and page >= 1%}
+        <div class="modal-overlay" id="aboutModal">
+        <div class="about-app">
+            <span class="close-modal" onclick="document.getElementById('aboutModal').style.display='none'">&times;</span>
+            <h2>About Mood Tiles</h2>
+            <p>
+                <strong>MOOD Tiles</strong> is a personalized music reflection tool that helps you visualize your Spotify listening history. 
+                By analyzing your recent and current tracks, the app offers insights into your musical moods through color-coded "tiles."
+            </p>
+            <p>
+                This project is designed to blend music data with mood representation—bringing emotion and style to your listening experience.
+            </p>
+        </div>
+        </div>
+        {% endif %}
+        
+  <div class="music-container">
+    <!-- NOW PLAYING -->
+    <div class="music-section now-playing">
+        <div class="now-playing-content">
+        <h1 class="app-title">
+            <span class="mood-m">M</span>
+            <span class="mood-o1">O</span>
+            <span class="mood-o2">O</span>
+            <span class="mood-d">D</span>
+            <span class="mood-tiles"> Tiles</span>
+        </h1>
+      <h2>🎧 Now Playing</h2>
+      {% if current_song %}
+      <div class="current-track {{ current_song.mood }}">
+        <div class="album-art ">
+          {% if current_song.image %}
+          <img src="{{ current_song.image }}" alt="Album cover">
+          {% endif %}
+        </div>
+        <div class="track-details">
+          <strong>{{ current_song.name }}</strong><br>
+          <span class="artist">{{ current_song.artist }}</span><br>
+          <a href="{{ current_song.url }}" target="_blank">Open in Spotify ↗</a>
+          <span class="current-mood-label">Mood: {{ current_song.mood }}</span>
+        </div>
+        <div class="music-bars">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      {% else %}
+      <p>No song currently playing.</p>
+      {% endif %}
+ 
+      </div>
+        <div class="logout-section">
+        <a class="logout-btn" href="{{ url_for('logout') }}">Logout from Spotify</a>
+        </div>
+    </div>
 
-                <div class="pagination">
-                {% if page > 1 %}
-                    <a href="{{ url_for('recent') }}?page={{ page - 1 }}">← Previous</a>
-                {% endif %}
+    <!-- DIVIDER -->
+    <div class="divider"></div>
 
-                <span>Page {{ page }} of {{ total_pages }}</span>
-
-                {% if page < total_pages %}
-                    <a href="{{ url_for('recent') }}?page={{ page + 1 }}">Next →</a>
+    <!-- RECENTLY PLAYED -->
+    <div class="music-section recently-played">
+    <h1>Spotify Recently Played</h1>
+    {% if songs %}
+        <a class="check" onclick="openMonthlyModal()">Check your monthly mood ➜</a>
+        <div class="song-list">
+        {% for song in songs %}
+        <div class="song-card {{ song.mood }}">
+            <div class="song-card-header">
+                <div class="song-title">{{ song.name }}</div>
+                {% if song.url %}
+                    <a class="song-link-inline" href="{{ song.url }}" target="_blank">▶ Spotify</a>
                 {% endif %}
             </div>
-            
-            {% else %}
-                <a href="{{ url_for('login') }}">Login with Spotify</a>
+            <div class="song-artist">by {{ song.artist }}</div>
+            <div class="song-mood-label">Mood: {{ song.mood }}</div>
+            <div class="song-played-at">Played at {{ song.played_at }}</div>
+            </div>
+        {% endfor %}
+        </div>
+
+        <div class="pagination">
+        <div class="page-indicator">Page {{ page }} of {{ total_pages }}</div>
+        <div class="pagination-buttons">
+            {% if page > 1 %}
+            <a href="{{ url_for('recent') }}?page={{ page - 1 }}">← Previous</a>
             {% endif %}
-    </div>
+            {% if page < total_pages %}
+            <a href="{{ url_for('recent') }}?page={{ page + 1 }}">Next →</a>
+            {% endif %}
+        </div>
+        </div>
+    {% endif %}
+
+        <div id="monthlyModalOverlay" class="modal-overlay" style="display: none;">
+            <div class="monthlymodal-content" id="monthlyModal">
+                <span class="monthlyclose" onclick="closeMonthlyModal()">&times;</span>
+                <div class="modal-body">
+                    <h2 class="spotify-font">Select a Month</h2>
+                    <form method="POST" action="{{ url_for('monthly') }}">
+                        <label class="spotify-font" for="month">Month:</label>
+                        <input type="month" name="month" required>
+                        <button type="submit" class="analyze-button" style="margin-top: 10px;">Analyze</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+  </div>
 </body>
+<script>
+ 
+function openMonthlyModal() {
+    document.getElementById('monthlyModalOverlay').style.display = 'flex';
+}
+
+function closeMonthlyModal() {
+    document.getElementById('monthlyModalOverlay').style.display = 'none';
+}
+
+window.onclick = function(event) {
+    const overlay = document.getElementById('monthlyModalOverlay');
+    if (event.target === overlay) {
+        closeMonthlyModal();
+    }
+}
+
+</script>
+
 </html>

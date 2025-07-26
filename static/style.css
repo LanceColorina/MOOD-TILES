@@ -1,18 +1,32 @@
+/* === GLOBAL === */
 body {
   font-family: 'Segoe UI', sans-serif;
-  background-color: #f4f6f8; /* soft light gray */
+  background-color: #e0e0e0; /* solid soft gray */
   color: #333;
   margin: 0;
   padding: 2rem;
 }
 
-h1 {
+h1, h2 {
   color: #1db954;
-  font-size: 2rem;
   text-align: center;
   margin-bottom: 1.5rem;
 }
 
+a {
+  display: block;
+  text-align: center;
+  margin-top: 2rem;
+  color: #1db954;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #169d48;
+}
+
+/* === CALENDAR === */
 .calendar {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -35,18 +49,50 @@ h1 {
   border-radius: 8px;
   box-shadow: inset 0 0 0 1px #ddd;
   cursor: pointer;
-  transition: transform 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
 }
+
+
+.app-title {
+  font-size: 2.5rem; /* scale down from 3.5rem */
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  font-weight: bold;
+  margin-top: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+  margin: 0;
+  padding: 0;
+  margin-bottom: 3rem; 
+}
+
+.app-title span {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+/* Individual letter colors */
+.mood-m { color: #1db954; }      /* pastel blue */
+.mood-o1 { color: #1db954; }     /* pastel blue */
+.mood-o2 { color: #1db954; }     /* pastel yellow */
+.mood-d { color: #1db954; }      /* pastel orange */
+.mood-tiles { color: #1db954; margin-left: 0.5rem; } /* green with spacing before "Tiles" */
 
 .day-cell:hover {
-  transform: scale(1.05);
-  z-index: 2;
+  transform: scale(1.04);
+  box-shadow: 0 0 12px 3px rgba(29, 185, 84, 0.6); /* Spotify green glow */
 }
-
+/* Tooltip below the cell */
 .day-cell::after {
   content: attr(data-tooltip);
   position: absolute;
-  display: none;
+  opacity: 0;
   background-color: #fff;
   color: #333;
   padding: 6px 10px;
@@ -58,10 +104,14 @@ h1 {
   transform: translateX(-50%);
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 10;
 }
 
+/* Reveal tooltip on hover */
 .day-cell:hover::after {
-  display: block;
+  opacity: 1;
 }
 
 .day-number {
@@ -73,68 +123,226 @@ h1 {
   color: #333;
 }
 
-/* Pastel mood colors */
-.Happy    { background-color: #fff9c4; } /* light yellow */
-.Sad      { background-color: #bbdefb; } /* light blue */
-.Relaxed, .Calm, .Chill  { background-color: #c8e6c9; } /* light green */
-.Energetic { background-color: #FFB347; } /* light orange */
-.Neutral  { background-color: #e0e0e0; } /* light gray */
-.Unknown  { background-color: #eeeeee; } /* very light gray */
-.Depressed { background-color: #2e2e2e; } /* black */
-.Angry    { background-color: #ffcdd2; } /* light red */
+/* === MOOD COLORS === */
+.Happy    { background-color: #fff9c4; }
+.Sad      { background-color: #bbdefb; }
+.Relaxed,
+.Calm,
+.Chill    { background-color: #c8e6c9; }
+.Energetic { background-color: #FFB347; }
+.Neutral  { background-color: #e0e0e0; }
+.Unknown  { background-color: #eeeeee; }
+.Depressed { background-color: #2e2e2e; }
+.Angry    { background-color: #ffcdd2; }
 
-a {
+/* === MUSIC PLAYER === */
+
+.music-container {
+  display: flex;
+  flex-direction: row;
+  gap: 2rem;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 1200px;
+  margin: 3rem auto;
+  background: #1a1b1a;
+  border-radius: 24px;
+  padding: 2rem;
+  color: white;
+  flex-wrap: wrap;
+  
+}
+
+.music-section {
+  padding: 1rem;
+  flex: 1;
+  min-width: 300px;
+}
+
+.divider {
+  width: 2px;
+  background: #444;
+  min-height: 100%;
   display: block;
-  text-align: center;
-  margin-top: 2rem;
+}
+
+/* Now Playing */
+.now-playing-info {
+  margin-top: 1rem;
+}
+
+.now-playing-info strong {
+  font-size: 1.2rem;
+  color: #1db954;
+}
+
+.now-playing-info .artist {
+  font-size: 1rem;
+  color: #ccc;
+}
+
+.now-playing-info a {
+  display: inline-block;
+  margin-top: 0.6rem;
   color: #1db954;
   font-weight: bold;
   text-decoration: none;
 }
 
-a:hover {
-  color: #169d48;
+.now-playing-info a:hover {
+  color: #23e065;
 }
 
-@media (max-width: 500px) {
-  .calendar {
-    max-width: 100%;
-    gap: 4px;
-  }
+.now-playing h2 {
+  color: #1db954;
+  margin-bottom: 1rem;
 }
 
-.spotify-font {
-  font-family: "helvetica-neue", Helvetica, Arial, sans-serif;
-}
-
-.analyze-button {
-  margin-left: 10px;
-  padding: 8px 20px;
-  background-color: #4CAF50;   /* Green background */
-  color: white;                /* White text */
-  border: none;                /* No border */
-  border-radius: 25px;         /* Circular edges */
-  font-size: 10px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.analyze-button:hover {
-  background-color: #388e3c;   /* Darker green on hover */
-}
-
-.spotify-outer {
-  background:#1a1b1a;
-  border-radius: 24px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
-  border: 2px solid #1db954;
-  padding: 2.5rem 2rem 2rem 2rem;
+.current-track {
+  min-width: 280px;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;  /* Also vertical center inside itself */
+  text-align: center;
+  background-color: #2a2a2a;
+  padding: 2rem;
+  border-radius: 16px;
+  gap: 1rem;
+  width: 100%;
   max-width: 400px;
-  margin: 3rem auto 0 auto;
-  color: #fff;
+  transition: box-shadow 0.3s ease;
+}
+
+.track-details {
+  word-break: break-word;
   text-align: center;
 }
 
+
+/* Mood-based box shadows using your mood colors */
+.current-track.Happy {
+  box-shadow: 0 4px 16px rgba(255, 249, 196, 0.8);
+}
+
+.current-track.Sad {
+  box-shadow: 0 4px 16px rgba(187, 222, 251, 0.8);
+}
+
+.current-track.Relaxed,
+.current-track.Calm,
+.current-track.Chill {
+  box-shadow: 0 4px 16px rgba(200, 230, 201, 0.8);
+}
+
+.current-track.Energetic {
+  box-shadow: 0 4px 16px rgba(255, 179, 71, 0.8);
+}
+
+.current-track.Neutral {
+  box-shadow: 0 4px 16px rgba(224, 224, 224, 0.8);
+}
+
+.current-track.Unknown {
+  box-shadow: 0 4px 16px rgba(238, 238, 238, 0.8);
+}
+
+.current-track.Depressed {
+  box-shadow: 0 4px 16px rgba(46, 46, 46, 0.8);
+}
+
+.current-track.Angry {
+  box-shadow: 0 4px 16px rgba(255, 205, 210, 0.8);
+}
+
+.current-mood-label {
+  margin-top: 8px;
+  font-style: italic;
+  color: #555;
+}
+
+.current-mood-label {
+  margin-top: 8px;
+  font-style: italic;
+  color: #555;
+}
+
+.album-art img {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  border-radius: 16px;
+ 
+  object-fit: contain;
+}
+.music-container {
+  display: flex;
+    flex-wrap: wrap; /* Ensures responsiveness */
+  align-items: flex-start;
+  flex-direction: row;
+  gap: 2rem;
+  justify-content: center;
+  align-items: stretch; /* allow full-height alignment */
+  min-height: 500px; /* ensures room for vertical centering */
+  max-width: 1200px;
+  margin: 3rem auto;
+  background: #1a1b1a;
+  border-radius: 24px;
+  padding: 2rem;
+  color: white;
+
+}
+.music-section.now-playing {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin-top: 50px;
+  text-align: center;
+  display: flex;
+  width: 100%;
+  flex: 1;
+}
+
+.check{
+  cursor: pointer;
+}
+
+.now-playing-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+    width: 100%;
+  text-align: center;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Animated bars */
+.music-bars span {
+  display: inline-block;
+  width: 5px;
+  height: 10px;
+  margin: 0 1px;
+  background: #1DB954;
+  animation: bounce 1s infinite ease-in-out;
+}
+
+.music-bars span:nth-child(2) { animation-delay: 0.1s; }
+.music-bars span:nth-child(3) { animation-delay: 0.2s; }
+.music-bars span:nth-child(4) { animation-delay: 0.3s; }
+
+@keyframes bounce {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(2); }
+}
+
+/* Recently Played */
 .song-list {
   display: flex;
   flex-direction: column;
@@ -142,27 +350,102 @@ a:hover {
   margin-top: 2rem;
 }
 
+.song-link a {
+  display: inline-block;
+  margin-top: 0.6rem;
+  color: #1db954;
+  font-weight: bold;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: color 0.2s ease;
+}
+
+.song-link a:hover {
+  color: #23e065;
+}
+
+.song-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
 .song-card {
   background: #232323;
   border: 1.5px solid #1db954;
   border-radius: 18px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.10);
-  padding: 1.2rem 1rem 1rem 1rem;
+  padding: 1.2rem 1rem;
   color: #fff;
   text-align: left;
-  transition: box-shadow 0.2s, border 0.2s;
+  transition: box-shadow 0.2s ease;
 }
 
-.song-card:hover {
+.song-mood-label{
+  font-size: 0.85rem;
+  color: #8e8e8e;
+}
+
+.song-card.Happy {
+  box-shadow: 0 4px 15px rgba(255, 249, 196, 0.6); /* pale yellow */
+}
+
+.song-card.Sad {
+  box-shadow: 0 4px 15px rgba(187, 222, 251, 0.6); /* soft blue */
+}
+
+.song-card.Relaxed,
+.song-card.Calm,
+.song-card.Chill {
+  box-shadow: 0 4px 15px rgba(200, 230, 201, 0.6); /* gentle green */
+}
+
+.song-card.Energetic {
+  box-shadow: 0 4px 15px rgba(255, 179, 71, 0.65); /* warm orange */
+}
+
+.song-card.Neutral {
+  box-shadow: 0 4px 15px rgba(224, 224, 224, 0.5); /* light gray */
+}
+
+.song-card.Unknown {
+  box-shadow: 0 4px 15px rgba(238, 238, 238, 0.45); /* neutral gray */
+}
+
+.song-card.Depressed {
+  box-shadow: 0 4px 15px rgba(46, 46, 46, 0.7); /* dark subtle */
+}
+
+.song-card.Angry {
+  box-shadow: 0 4px 15px rgba(255, 205, 210, 0.6); /* soft red */
+}
+/*.song-card:hover {
   box-shadow: 0 4px 18px rgba(30,185,84,0.18);
   border: 2px solid #1db954;
-}
+}*/
 
 .song-title {
   font-size: 1.1rem;
   font-weight: bold;
   color: #1db954;
-  margin-bottom: 0.3rem;
+  margin: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-link-inline {
+  font-size: 0.95rem;
+  color: #1db954;
+  font-weight: bold;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.song-link-inline:hover {
+  color: #23e065;
 }
 
 .song-artist {
@@ -176,29 +459,27 @@ a:hover {
   color: #8e8e8e;
 }
 
-.pagination {
+/* Pagination */
+.page-indicator {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ccc;
+  margin-bottom: 0.3rem;
+  padding: 10px 18px;
+  display: inline-block;
+}
+
+.login_withhref{
+  font-size: 30px;
+}
+
+.pagination-buttons {
   display: flex;
+  gap: 12px;
   justify-content: center;
   align-items: center;
-  margin-top: 2rem;
-  gap: 10px;
-}
-
-.page-circle {
-  font-size: 1.2rem;
   cursor: pointer;
-  color: #bbb; /* muted light gray for inactive */
-  transition: color 0.2s ease;
-  text-decoration: none;
-}
-
-.page-circle:hover {
-  color: #1db954;
-}
-
-.page-circle.active {
-  color: #1db954; /* Spotify green for active page */
-  font-weight: bold;
 }
 
 .pagination a {
@@ -211,3 +492,380 @@ a:hover {
   color: #23e065;
 }
 
+/* === SPOTIFY UI === */
+.spotify-outer {
+  background: #1a1b1a;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  border: 2px solid #1db954;
+  padding: 2.5rem 2rem 2rem 2rem;
+  max-width: 400px;
+  margin: 3rem auto 0 auto;
+  color: #fff;
+  text-align: center;
+}
+
+.spotify-font {
+  font-family: "helvetica-neue", Helvetica, Arial, sans-serif;
+}
+
+.analyze-button {
+  margin-left: 10px;
+  margin-top: 15px;
+  padding: 8px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.analyze-button:hover {
+  background-color: #388e3c;
+}
+
+/* === RESPONSIVE === */
+@media screen and (max-width: 768px) {
+  .music-container {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  .divider {
+    width: 100%;
+    height: 2px;
+    margin: 1rem 0;
+  }
+}
+@media (max-width: 500px) {
+  .calendar {
+    max-width: 100%;
+    gap: 4px;
+  }
+}
+
+/* === ABout App ==*/
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.about-app {
+  background-color: #f0f8ff;
+  padding: 40px 50px;
+  border-radius: 16px;
+  max-width: 700px;
+  width: 90%;
+  min-height: 300px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  position: relative;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+
+.about-app h2 {
+  margin-top: 0;
+  font-size: 28px;
+  color: #1db954;
+  position: relative;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ccc; /* divider below title */
+}
+
+.about-app p {
+  font-size: 16px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.close-modal {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  font-size: 22px;
+  color: #999;
+  cursor: pointer;
+}
+
+.close-modal:hover {
+  color: #000;
+}
+
+.logout-section {
+  margin-top: 40px; /* Increase this value as needed */
+  text-align: center;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  color: #d9534f;
+  font-size: 25px;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+.logout-btn:hover {
+  color: #c9302c;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.monthlymodal-content {
+  font-size: 20px;
+  background: #1a1b1a;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  border: 2px solid #1db954;
+  padding: 36px 40px;
+  position: relative;
+
+  max-width: 600px;      /* ⬅️ Increased width */
+  width: 95%;
+  max-height: 1000vh;      /* ⬅️ Prevent overflow */
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.monthlyclose {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.modal-body {
+    text-align: center;
+}
+
+.monthlymodal-content {
+  max-width: 480px;
+  max-height: 85vh;
+  padding: 24px 28px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #1db954 #2a2a2a;
+}
+.modal-body {
+  width: 100%;
+}
+
+.song-entry {
+  margin-bottom: 12px;
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+
+.monthlymodal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.monthlymodal-content::-webkit-scrollbar-track {
+  background: #2a2a2a;
+  border-radius: 10px;
+}
+
+.monthlymodal-content::-webkit-scrollbar-thumb {
+  background-color: #1db954;
+  border-radius: 10px;
+  border: 2px solid #2a2a2a;
+}
+
+/* Scroll area within modal */
+#daySongsList.song-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #1db954 #2a2a2a;
+}
+
+#daySongsList.song-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#daySongsList.song-list::-webkit-scrollbar-track {
+  background: #2a2a2a;
+}
+
+#daySongsList.song-list::-webkit-scrollbar-thumb {
+  background-color: #1db954;
+  border-radius: 8px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 999;
+}
+
+    .day-cell[data-tooltip] {
+      position: relative;
+      cursor: pointer;
+    }
+    .day-cell[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      background-color: #222;
+      color: #fff;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translate(-50%, -100%);
+      top: -8px;
+      left: 50%;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+    .day-cell[data-tooltip]:hover::after {
+      opacity: 1;
+    }
+    .pagination-controls {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
+    }
+    .pagination-controls button {
+      background-color: #1db954;
+      border: none;
+      padding: 6px 12px;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .pagination-controls button:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+    .monthlymodal-content {
+      max-width: 360px;
+      padding: 20px 24px;
+    }
+    .song-card {
+      font-size: 0.95rem;
+    }
+    .song-title {
+      font-size: 1rem;
+    }
+    .song-artist, .song-played-at, .song-mood-label {
+      font-size: 0.85rem;
+    }
+.spinner-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background-color: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.spinner {
+  border: 4px solid rgba(0,0,0,0.1);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border-left-color: #1db954;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.nav-btn {
+  background-color: #1db954;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin: 0 8px;
+}
+
+.nav-btn:hover {
+  background-color: #159c46;
+}
+
+.nav-btn.disabled {
+  background-color: #888;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.nav-btn:disabled,
+.nav-btn[disabled] {
+  background-color: #888;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tracks-content {
+  background: #1a1b1a;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  border: 2px solid #1db954;
+  padding: 36px 40px;
+  position: relative;
+
+  max-width: 500px;  /* ⬅️ Wider than default 400px */
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.calendar-note {
+  font-size: 0.85rem;
+  color: #999;
+  text-align: center;
+  margin-top: 1rem;
+  font-style: italic;
+}
