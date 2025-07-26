@@ -140,8 +140,18 @@ def monthly(sp, user):
             for day in month_days:
                 moods = daily_moods.get(day, [])
                 if moods:
-                    # Find most common mood
-                    dominant = max(moods, key=moods.count)
+                    mood_scores = {
+                        'Angry 😠': 5,
+                        'Energetic 🔥': 4,
+                        'Happy 😊': 3,
+                        'Chill 😎': 2,
+                        'Calm 🧘': 1,
+                        'Sad 😢': 0,
+                    }
+                    # Average mood score for the day
+                    avg_score = sum(mood_scores[m] for m in moods if m in mood_scores) / len(moods)
+                    # Find the mood with closest score
+                    dominant = min(mood_scores.keys(), key=lambda m: abs(mood_scores[m] - avg_score))
                 else:
                     dominant = 'No Data 📭'
                 mood_grid.append({'day': day, 'mood': dominant, 'count': len(moods)})
