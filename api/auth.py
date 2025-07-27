@@ -78,7 +78,7 @@ def login_required(sp_oauth):
                 return redirect('/login')
 
             # Get user from database
-            user = User.query.get(user_id)
+            user = User.query.filter_by(id=user_id).first()
             if not user:
                 session.clear()
                 return redirect('/login')
