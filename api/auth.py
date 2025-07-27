@@ -4,6 +4,7 @@ Authentication helper functions for Spotify Mood Tracker
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import session, redirect
+
 from spotipy import Spotify
 from .models import db, User
 
@@ -68,43 +69,36 @@ def refresh_user_tokens(user, sp_oauth):
         return False
 
 def login_required(sp_oauth):
-    """
-    Decorator factory that creates a login_required decorator
-    
-    Args:
-        sp_oauth: SpotifyOAuth object
-        
-    Returns:
-        function: Decorator function
-    """
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(*args, **kwargs):
             user_id = session.get('user_id')
-            
+
             if not user_id:
                 return redirect('/login')
-            
+
             # Get user from database
             user = User.query.get(user_id)
             if not user:
                 session.clear()
                 return redirect('/login')
-            
+
             # Check if token needs refresh
             if user.is_token_expired():
-                if not refresh_user_tokens(user, sp_oauth):
+                refreshed = refresh_user_tokens(user, sp_oauth)
+                if not refreshed:
+                    print("Token refresh failed.")
                     session.clear()
                     return redirect('/login')
-            
-            # Create Spotify client
+
             try:
+                # Now safely use token
                 sp = Spotify(auth=user.get_access_token())
                 return view_func(sp, user, *args, **kwargs)
             except Exception as e:
-                session.clear()
+                # Log but don't clear session immediately
                 print("Spotify API error:", e)
-                return redirect('/login')
-        
+                return redirect('/login')  # or another route you prefer
+                
         return wrapper
     return decorator

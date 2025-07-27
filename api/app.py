@@ -7,11 +7,15 @@ from dotenv import load_dotenv
 from collections import defaultdict
 from datetime import datetime
 import calendar
+from pytz import timezone, utc
+from flask import url_for
+from flask import make_response
 
 # Import our custom modules
 from .models import db, User, Track, Listen
-from .database import save_listening_history, get_user_recent_listens, get_monthly_listens, get_user_stats
+from .database import get_or_create_track, save_listening_history, get_user_recent_listens, get_monthly_listens, get_user_stats
 from .auth import create_or_update_user, login_required
+from datetime import datetime, timedelta
 
 # --- Load environment variables ---
 load_dotenv()
@@ -34,8 +38,9 @@ sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
-    scope="user-read-recently-played",
-    cache_path=None
+    scope="user-read-recently-played user-read-playback-state user-read-currently-playing",
+    cache_path=None,
+    show_dialog=True
 )
 
 # Create the login_required decorator with our sp_oauth instance
@@ -43,14 +48,20 @@ login_required = login_required(sp_oauth)
 
 # --- Routes ---
 @app.route('/')
-def home():
-    return render_template('home.html')
+def index():
+    if 'token_info' in session and 'user_id' in session:
+        return redirect('/recent')
+    return render_template('login.html', sp_oauth=sp_oauth)
 
 @app.route('/login')
 def login():
-    session.clear()
+    session.clear()  
+    # Only generate nonce, don't clear session unless needed
+    if 'user_id' in session and 'token_info' in session:
+        return redirect('/recent')  # Already logged in
     session['nonce'] = secrets.token_hex(16)
-    return redirect(sp_oauth.get_authorize_url())
+    return render_template('login.html', sp_oauth=sp_oauth)
+
 
 @app.route('/callback')
 def callback():
@@ -73,6 +84,7 @@ def callback():
         # Create or update user in database
         user = create_or_update_user(user_info, token_info)
         session['user_id'] = user.id
+        session['logged_in'] = True
 
         return redirect('/recent')
     except Exception as e:
@@ -84,22 +96,45 @@ def callback():
 @login_required
 def recent(sp, user):
     try:
-        # Fetch recent songs from Spotify and save to database
+        # Get currently playing track
+        current_playing = sp.current_playback()
+        current_song = None
+        try:
+            current_playing = sp.current_playback()
+            if current_playing and current_playing.get('is_playing'):
+                track_data = current_playing['item']
+                db_track = get_or_create_track(track_data)
+                mood = db_track.mood
+                current_song = {
+                    'name': track_data['name'],
+                    'artist': ', '.join([a['name'] for a in track_data['artists']]),
+                    'mood': mood,
+                    'image': track_data['album']['images'][0]['url'] if track_data['album']['images'] else None,
+                    'url': track_data['external_urls']['spotify']
+                }
+        except Exception as e:
+            print("Warning: Failed to fetch current playing track.", e)
+
+
+        # Save recent listens to DB
         results = sp.current_user_recently_played(limit=50)
         save_listening_history(user, results['items'])
-        
-        # Get recent listens from database for display
-        recent_listens = get_user_recent_listens(user, limit=10)
-        
+
+        # Retrieve recent listens from DB
+        recent_listens = get_user_recent_listens(user, limit=15)
+        local_tz = timezone("Asia/Manila")
+
         songs = []
         for listen, track in recent_listens:
+            local_time = listen.played_at.replace(tzinfo=utc).astimezone(local_tz)
             songs.append({
                 'name': track.name,
                 'artist': track.artist,
                 'mood': track.mood,
-                'played_at': listen.played_at.strftime('%B %d, %Y, %I:%M %p')
+                'url': f"https://open.spotify.com/track/{track.spotify_id}",  
+                'played_at': local_time.strftime('%B %d, %Y, %I:%M %p')
             })
-        
+
         # Pagination
         page = int(request.args.get('page', 1))
         per_page = 5
@@ -108,10 +143,18 @@ def recent(sp, user):
         end = start + per_page
         paginated_songs = songs[start:end]
 
-        return render_template('home.html', songs=paginated_songs, page=page, total_pages=total_pages)
+        return render_template(
+            'home.html',
+            songs=paginated_songs,
+            page=page,
+            total_pages=total_pages,
+            current_song=current_song
+        )
+
     except Exception as e:
         print("Error fetching recent tracks:", e)
-        import traceback; traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         return redirect('/login')
 
 @app.route('/monthly', methods=['GET', 'POST'])
@@ -171,6 +214,53 @@ def monthly(sp, user):
 
     return render_template('month_form.html')
 
+@app.route('/api/day-songs')
+@login_required
+def day_songs(sp, user):
+    date_str = request.args.get('date')
+    if not date_str:
+        return {"error": "Missing date"}, 400
+
+    try:
+        # Parse and localize to UTC
+        start = utc.localize(datetime.strptime(date_str, "%Y-%m-%d"))
+        end = start + timedelta(days=1)
+
+        listens = Listen.query.filter(
+            Listen.user_id == user.id,
+            Listen.played_at >= start,
+            Listen.played_at < end
+        ).order_by(Listen.played_at).all()
+
+        results = []
+        local_tz = timezone("Asia/Manila")
+
+        for listen in listens:
+            track = Track.query.get(listen.track_id)
+            if not track:
+                continue
+
+            local_time = listen.played_at.replace(tzinfo=utc).astimezone(local_tz)
+            results.append({
+                "name": track.name,
+                "artist": track.artist,
+                "mood": track.mood,
+                'url': f"https://open.spotify.com/track/{track.spotify_id}",
+                "played_at": local_time.strftime('%I:%M %p')
+            })
+
+        return results
+
+    except Exception as e:
+        print("Error fetching day songs:", e)
+        return {"error": "Internal server error"}, 500
+
+
+    except Exception as e:
+        print("Error fetching day songs:", e)
+        return {"error": "Internal server error"}, 500
+
+
 @app.route('/stats')
 @login_required
 def stats(sp, user):
@@ -188,11 +278,16 @@ def stats(sp, user):
         print("Error generating stats:", e)
         return redirect('/login')
 
-@app.route('/logout')
+@app.route('/logout', methods=['GET'])
 def logout():
-    """Log out user"""
     session.clear()
-    return redirect('/')
+    
+    # Expire session cookie explicitly
+    response = make_response(redirect('/login'))
+    response.set_cookie('session', '', expires=0)
+
+    print("Session cleared.")
+    return response
 
 # --- Initialize Database ---
 @app.before_request

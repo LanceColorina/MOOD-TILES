@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login | MOOD Tiles</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #e5e5e5;;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .app-title {
+      font-size: 3.5rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0;
+      margin: 0;
+      padding: 0;
+      margin-bottom: 2rem;
+    }
+
+    .app-title span {
+      display: inline-block;
+      margin: 0;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .mood-m, .mood-o1, .mood-o2, .mood-d, .mood-tiles {
+      color: #1db954;
+    }
+
+    .mood-tiles {
+      margin-left: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      max-width: 600px;
+      color: #555;
+      margin-bottom: 2rem;
+      font-weight: bold;
+    }
+
+    .login-button {
+      background-color: #1DB954;
+      color: white;
+      font-size: 18px;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 30px;
+      text-decoration: none;
+      transition: background-color 0.3s ease;
+    }
+
+    .login-button:hover {
+      background-color: #169d48;
+    }
+
+    .footer {
+      font-size: 14px;
+      color: #999;
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 class="app-title">
+    <span class="mood-m">M</span>
+    <span class="mood-o1">O</span>
+    <span class="mood-o2">O</span>
+    <span class="mood-d">D</span>
+    <span class="mood-tiles">Tiles</span>
+  </h1>
+
+  <div class="subtitle">
+    Discover your musical mood and see how your songs are reflected in vibrant mood tiles. Connect your Spotify to begin.
+  </div>
+
+<a class= "login_withhref" href="{{ sp_oauth.get_authorize_url() }}">Log in with Spotify</a>
+
+  </div>
+
+</body>
+</html>
