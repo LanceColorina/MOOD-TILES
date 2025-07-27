@@ -38,7 +38,7 @@ sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
-    scope="user-read-recently-played user-read-playback-state",
+    scope="user-read-recently-played user-read-playback-state user-read-currently-playing",
     cache_path=None,
     show_dialog=True
 )
@@ -55,6 +55,7 @@ def index():
 
 @app.route('/login')
 def login():
+    session.clear()  
     # Only generate nonce, don't clear session unless needed
     if 'user_id' in session and 'token_info' in session:
         return redirect('/recent')  # Already logged in
@@ -182,8 +183,18 @@ def monthly(sp, user):
             for day in month_days:
                 moods = daily_moods.get(day, [])
                 if moods:
-                    # Find most common mood
-                    dominant = max(moods, key=moods.count)
+                    mood_scores = {
+                        'Angry 😠': 5,
+                        'Energetic 🔥': 4,
+                        'Happy 😊': 3,
+                        'Chill 😎': 2,
+                        'Calm 🧘': 1,
+                        'Sad 😢': 0,
+                    }
+                    # Average mood score for the day
+                    avg_score = sum(mood_scores[m] for m in moods if m in mood_scores) / len(moods)
+                    # Find the mood with closest score
+                    dominant = min(mood_scores.keys(), key=lambda m: abs(mood_scores[m] - avg_score))
                 else:
                     dominant = 'No Data 📭'
                 mood_grid.append({'day': day, 'mood': dominant, 'count': len(moods)})
