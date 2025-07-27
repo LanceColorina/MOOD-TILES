@@ -40,7 +40,7 @@ sp_oauth = SpotifyOAuth(
     redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
     scope="user-read-recently-played user-read-playback-state",
     cache_path=None,
-    show_dialog=False
+    show_dialog=True
 )
 
 # Create the login_required decorator with our sp_oauth instance
@@ -98,19 +98,21 @@ def recent(sp, user):
         # Get currently playing track
         current_playing = sp.current_playback()
         current_song = None
-
-        if current_playing and current_playing.get('is_playing'):
-            track_data = current_playing['item']
-            db_track = get_or_create_track(track_data)  # Insert + mood analysis
-            mood = db_track.mood
-
-            current_song = {
-                'name': track_data['name'],
-                'artist': ', '.join([a['name'] for a in track_data['artists']]),
-                'mood': mood,
-                'image': track_data['album']['images'][0]['url'] if track_data['album']['images'] else None,
-                'url': track_data['external_urls']['spotify']
-            }
+        try:
+            current_playing = sp.current_playback()
+            if current_playing and current_playing.get('is_playing'):
+                track_data = current_playing['item']
+                db_track = get_or_create_track(track_data)
+                mood = db_track.mood
+                current_song = {
+                    'name': track_data['name'],
+                    'artist': ', '.join([a['name'] for a in track_data['artists']]),
+                    'mood': mood,
+                    'image': track_data['album']['images'][0]['url'] if track_data['album']['images'] else None,
+                    'url': track_data['external_urls']['spotify']
+                }
+        except Exception as e:
+            print("Warning: Failed to fetch current playing track.", e)
 
 
         # Save recent listens to DB
