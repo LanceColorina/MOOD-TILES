@@ -1,21 +1,23 @@
 import os
 import secrets
-from flask import Flask, redirect, request, session, render_template
+from flask import Flask, redirect, request, session, render_template, jsonify
 from flask_session import Session
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import calendar
-from pytz import timezone, utc
 from flask import url_for
 from flask import make_response
 
 # Import our custom modules
 from .models import db, User, Track, Listen
-from .database import get_or_create_track, save_listening_history, get_user_recent_listens, get_monthly_listens, get_user_stats
+from .database import (
+    get_or_create_track, save_listening_history, 
+    get_user_recent_listens_with_moods, get_monthly_listens_with_moods, 
+    get_user_stats_with_custom_moods, update_user_mood_override, get_available_moods
+)
 from .auth import create_or_update_user, login_required
-from datetime import datetime, timedelta
 
 # --- Load environment variables ---
 load_dotenv()
@@ -46,6 +48,12 @@ sp_oauth = SpotifyOAuth(
 # Create the login_required decorator with our sp_oauth instance
 login_required = login_required(sp_oauth)
 
+# --- Helper function for timezone conversion ---
+def to_manila_time(utc_datetime):
+    """Convert UTC datetime to Manila timezone"""
+    manila_tz = timezone(timedelta(hours=8))  # UTC+8 for Manila
+    return utc_datetime.replace(tzinfo=timezone.utc).astimezone(manila_tz)
+
 # --- Routes ---
 @app.route('/')
 def index():
@@ -61,7 +69,6 @@ def login():
         return redirect('/recent')  # Already logged in
     session['nonce'] = secrets.token_hex(16)
     return render_template('login.html', sp_oauth=sp_oauth)
-
 
 @app.route('/callback')
 def callback():
@@ -99,41 +106,46 @@ def recent(sp, user):
     try:
         
         # Get currently playing track
-        current_playing = sp.current_playback()
         current_song = None
         show_modal = session.pop('show_about_modal', False)
         try:
-            current_playing = sp.current_playback()
+            current_playing = sp.current_playbook()
             if current_playing and current_playing.get('is_playing'):
                 track_data = current_playing['item']
                 db_track = get_or_create_track(track_data)
-                mood = db_track.mood
+                mood = user.get_track_mood(db_track)  # Get user's custom mood or default
                 current_song = {
                     'name': track_data['name'],
                     'artist': ', '.join([a['name'] for a in track_data['artists']]),
                     'mood': mood,
                     'image': track_data['album']['images'][0]['url'] if track_data['album']['images'] else None,
-                    'url': track_data['external_urls']['spotify']
+                    'url': track_data['external_urls']['spotify'],
+                    'track_id': db_track.id
                 }
         except Exception as e:
             print("Warning: Failed to fetch current playing track.", e)
-
 
         # Save recent listens to DB
         results = sp.current_user_recently_played(limit=50)
         save_listening_history(user, results['items'])
 
-        # Retrieve recent listens from DB
-        recent_listens = get_user_recent_listens(user, limit=15)
-        local_tz = timezone("Asia/Manila")
+        # Retrieve recent listens from DB with custom moods
+        recent_listens = get_user_recent_listens_with_moods(user, limit=15)
 
         songs = []
-        for listen, track in recent_listens:
-            local_time = listen.played_at.replace(tzinfo=utc).astimezone(local_tz)
+        for listen_data in recent_listens:
+            listen = listen_data['listen']
+            track = listen_data['track']
+            mood = listen_data['mood']
+            is_custom = listen_data['is_custom_mood']
+            
+            local_time = to_manila_time(listen.played_at)
             songs.append({
+                'track_id': track.id,
                 'name': track.name,
                 'artist': track.artist,
-                'mood': track.mood,
+                'mood': mood,
+                'is_custom_mood': is_custom,
                 'url': f"https://open.spotify.com/track/{track.spotify_id}",  
                 'played_at': local_time.strftime('%B %d, %Y, %I:%M %p')
             })
@@ -146,13 +158,17 @@ def recent(sp, user):
         end = start + per_page
         paginated_songs = songs[start:end]
 
+        # Get available moods for dropdown
+        available_moods = get_available_moods()
+
         return render_template(
             'home.html',
             songs=paginated_songs,
             page=page,
             total_pages=total_pages,
             current_song=current_song,
-            show_modal=show_modal
+            show_modal=show_modal,
+            available_moods=available_moods
         )
 
     except Exception as e:
@@ -160,6 +176,29 @@ def recent(sp, user):
         import traceback
         traceback.print_exc()
         return redirect('/login')
+
+@app.route('/update-mood', methods=['POST'])
+@login_required
+def update_mood(sp, user):
+    """Update user's custom mood for a track"""
+    try:
+        data = request.get_json()
+        track_id = data.get('track_id')
+        new_mood = data.get('mood')
+        
+        if not track_id or not new_mood:
+            return jsonify({'success': False, 'error': 'Missing track_id or mood'}), 400
+        
+        success = update_user_mood_override(user, track_id, new_mood)
+        
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Invalid mood or track'}), 400
+            
+    except Exception as e:
+        print("Error updating mood:", e)
+        return jsonify({'success': False, 'error': 'Server error'}), 500
 
 @app.route('/monthly', methods=['GET', 'POST'])
 @login_required
@@ -169,14 +208,15 @@ def monthly(sp, user):
         try:
             year, month = map(int, selected_month.split('-'))
             
-            # Query database for listens in the selected month (super fast!)
-            monthly_listens = get_monthly_listens(user, year, month)
+            # Query database for listens in the selected month with custom moods
+            monthly_listens = get_monthly_listens_with_moods(user, year, month)
             
             # Group by day
             daily_moods = defaultdict(list)
-            for listen, track in monthly_listens:
+            for listen_data in monthly_listens:
+                listen = listen_data['listen']
+                mood = listen_data['mood']
                 day_key = listen.played_at.strftime('%Y-%m-%d')
-                mood = track.mood
                 daily_moods[day_key].append(mood)
             
             # Create mood grid
@@ -194,11 +234,17 @@ def monthly(sp, user):
                         'Chill 😎': 2,
                         'Calm 🧘': 1,
                         'Sad 😢': 0,
+                        'Depressed 😞': -1,
+                        'Unknown 🤷': 2.5
                     }
                     # Average mood score for the day
-                    avg_score = sum(mood_scores[m] for m in moods if m in mood_scores) / len(moods)
-                    # Find the mood with closest score
-                    dominant = min(mood_scores.keys(), key=lambda m: abs(mood_scores[m] - avg_score))
+                    valid_moods = [m for m in moods if m in mood_scores]
+                    if valid_moods:
+                        avg_score = sum(mood_scores[m] for m in valid_moods) / len(valid_moods)
+                        # Find the mood with closest score
+                        dominant = min(mood_scores.keys(), key=lambda m: abs(mood_scores[m] - avg_score))
+                    else:
+                        dominant = 'Unknown 🤷'
                 else:
                     dominant = 'No Data 📭'
                 mood_grid.append({'day': day, 'mood': dominant, 'count': len(moods)})
@@ -226,8 +272,8 @@ def day_songs(sp, user):
         return {"error": "Missing date"}, 400
 
     try:
-        # Parse and localize to UTC
-        start = utc.localize(datetime.strptime(date_str, "%Y-%m-%d"))
+        # Parse date
+        start = datetime.strptime(date_str, "%Y-%m-%d")
         end = start + timedelta(days=1)
 
         listens = Listen.query.filter(
@@ -237,46 +283,47 @@ def day_songs(sp, user):
         ).order_by(Listen.played_at).all()
 
         results = []
-        local_tz = timezone("Asia/Manila")
+        available_moods = get_available_moods()
 
         for listen in listens:
             track = Track.query.get(listen.track_id)
             if not track:
                 continue
 
-            local_time = listen.played_at.replace(tzinfo=utc).astimezone(local_tz)
+            local_time = to_manila_time(listen.played_at)
+            mood = user.get_track_mood(track)  # Get custom or default mood
+            is_custom = str(track.id) in user.get_mood_overrides()
+            
             results.append({
+                "track_id": track.id,
                 "name": track.name,
                 "artist": track.artist,
-                "mood": track.mood,
+                "mood": mood,
+                "is_custom_mood": is_custom,
                 'url': f"https://open.spotify.com/track/{track.spotify_id}",
-                "played_at": local_time.strftime('%I:%M %p')
+                "played_at": local_time.strftime('%I:%M %p'),
+                "available_moods": available_moods
             })
 
-        return results
+        return jsonify(results)
 
     except Exception as e:
         print("Error fetching day songs:", e)
         return {"error": "Internal server error"}, 500
-
-
-    except Exception as e:
-        print("Error fetching day songs:", e)
-        return {"error": "Internal server error"}, 500
-
 
 @app.route('/stats')
 @login_required
 def stats(sp, user):
-    """Display user statistics"""
+    """Display user statistics with custom moods considered"""
     try:
-        user_stats = get_user_stats(user)
+        user_stats = get_user_stats_with_custom_moods(user)
         
         return render_template('stats.html',
             total_listens=user_stats['total_listens'],
             unique_tracks=user_stats['unique_tracks'],
             mood_stats=user_stats['mood_stats'],
-            recent_activity=user_stats['recent_activity']
+            recent_activity=user_stats['recent_activity'],
+            custom_mood_overrides=user_stats['custom_mood_overrides']
         )
     except Exception as e:
         print("Error generating stats:", e)

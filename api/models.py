@@ -1,7 +1,8 @@
 """
-Database models for Spotify Mood Tracker
+Database models for Spotify Mood Tracker with User Mood Customization
 """
 import os
+import json
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
@@ -49,6 +50,7 @@ class User(db.Model):
     access_token = db.Column(db.Text, nullable=True)  # Encrypted
     refresh_token = db.Column(db.Text, nullable=True)  # Encrypted
     token_expires_at = db.Column(db.DateTime, nullable=True)
+    mood_overrides = db.Column(db.Text, nullable=True)  # JSON string of custom moods
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -76,6 +78,38 @@ class User(db.Model):
             return True
         return datetime.utcnow() >= self.token_expires_at
     
+    def get_mood_overrides(self):
+        """Get user's mood overrides as dictionary"""
+        if self.mood_overrides:
+            try:
+                return json.loads(self.mood_overrides)
+            except json.JSONDecodeError:
+                return {}
+        return {}
+    
+    def set_mood_override(self, track_id, mood):
+        """Set custom mood for a specific track"""
+        overrides = self.get_mood_overrides()
+        overrides[str(track_id)] = mood
+        self.mood_overrides = json.dumps(overrides)
+        db.session.commit()
+    
+    def remove_mood_override(self, track_id):
+        """Remove custom mood override for a track"""
+        overrides = self.get_mood_overrides()
+        if str(track_id) in overrides:
+            del overrides[str(track_id)]
+            self.mood_overrides = json.dumps(overrides) if overrides else None
+            db.session.commit()
+    
+    def get_track_mood(self, track):
+        """Get mood for a track (custom override or default)"""
+        overrides = self.get_mood_overrides()
+        track_id_str = str(track.id)
+        
+        # Return custom mood if exists, otherwise return track's default mood
+        return overrides.get(track_id_str, track.mood)
+    
     def __repr__(self):
         return f'<User {self.spotify_id}>'
 
@@ -88,7 +122,7 @@ class Track(db.Model):
     artist = db.Column(db.String(200), nullable=False)
     deezer_id = db.Column(db.BigInteger, nullable=True)
     gain = db.Column(db.Float, nullable=True)
-    mood = db.Column(db.String(50), nullable=True)
+    mood = db.Column(db.String(50), nullable=True)  # Default mood from Deezer analysis
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationship to listens
@@ -108,6 +142,10 @@ class Listen(db.Model):
     
     # Add a unique constraint to prevent duplicate listens
     __table_args__ = (db.UniqueConstraint('user_id', 'track_id', 'played_at', name='unique_listen'),)
+    
+    def get_mood_for_user(self, user):
+        """Get the mood for this listen considering user's custom overrides"""
+        return user.get_track_mood(self.track)
     
     def __repr__(self):
         return f'<Listen user_id={self.user_id} track_id={self.track_id} at {self.played_at}>'

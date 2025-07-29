@@ -1,5 +1,5 @@
 """
-Database helper functions for Spotify Mood Tracker
+Database helper functions for Spotify Mood Tracker with User Mood Customization
 """
 import requests
 from datetime import datetime
@@ -56,6 +56,18 @@ def classify_mood(track_metrics):
     else:
         return 'Depressed 😞'
 
+def get_available_moods():
+    """Get list of available mood options for dropdown"""
+    return [
+        'Angry 😠',
+        'Energetic 🔥', 
+        'Happy 😊',
+        'Chill 😎',
+        'Calm 🧘',
+        'Sad 😢',
+        'Depressed 😞'
+    ]
+
 def get_or_create_track(spotify_track):
     """
     Get existing track or create new one with mood analysis
@@ -81,7 +93,7 @@ def get_or_create_track(spotify_track):
         artist=spotify_track['artists'][0]['name']
     )
     
-    # Analyze mood
+    # Analyze mood (this becomes the default mood)
     try:
         deezer_id = get_deezer_id(track.name, track.artist)
         if deezer_id:
@@ -98,6 +110,40 @@ def get_or_create_track(spotify_track):
     db.session.add(track)
     db.session.commit()
     return track
+
+def update_user_mood_override(user, track_id, new_mood):
+    """
+    Update user's custom mood for a specific track
+    
+    Args:
+        user: User database object
+        track_id: Track ID to update mood for
+        new_mood: New mood string
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Validate mood
+        available_moods = get_available_moods()
+        if new_mood not in available_moods:
+            return False
+        
+        # Check if track exists
+        track = Track.query.get(track_id)
+        if not track:
+            return False
+        
+        # If new mood matches the track's default mood, remove override
+        if new_mood == track.mood:
+            user.remove_mood_override(track_id)
+        else:
+            user.set_mood_override(track_id, new_mood)
+        
+        return True
+    except Exception as e:
+        print(f"Error updating mood override: {e}")
+        return False
 
 def save_listening_history(user, spotify_items):
     """
@@ -141,24 +187,35 @@ def save_listening_history(user, spotify_items):
     
     return saved_count
 
-def get_user_recent_listens(user, limit=10):
+def get_user_recent_listens_with_moods(user, limit=10):
     """
-    Get recent listening history for a user from database
+    Get recent listening history for a user with their custom moods
     
     Args:
         user: User database object
         limit: Maximum number of listens to return
         
     Returns:
-        list: List of (Listen, Track) tuples
+        list: List of dictionaries with listen, track, and mood info
     """
-    return db.session.query(Listen, Track).join(Track).filter(
+    listens_tracks = db.session.query(Listen, Track).join(Track).filter(
         Listen.user_id == user.id
     ).order_by(Listen.played_at.desc()).limit(limit).all()
+    
+    result = []
+    for listen, track in listens_tracks:
+        result.append({
+            'listen': listen,
+            'track': track,
+            'mood': user.get_track_mood(track),  # This will get custom or default mood
+            'is_custom_mood': str(track.id) in user.get_mood_overrides()
+        })
+    
+    return result
 
-def get_monthly_listens(user, year, month):
+def get_monthly_listens_with_moods(user, year, month):
     """
-    Get all listens for a user in a specific month
+    Get all listens for a user in a specific month with their custom moods
     
     Args:
         user: User database object
@@ -166,7 +223,7 @@ def get_monthly_listens(user, year, month):
         month: Month (int, 1-12)
         
     Returns:
-        list: List of (Listen, Track) tuples for the month
+        list: List of dictionaries with listen, track, and mood info
     """
     # Create date range for the month
     start_date = datetime(year, month, 1)
@@ -175,23 +232,35 @@ def get_monthly_listens(user, year, month):
     else:
         end_date = datetime(year, month + 1, 1)
     
-    return db.session.query(Listen, Track).join(Track).filter(
+    listens_tracks = db.session.query(Listen, Track).join(Track).filter(
         Listen.user_id == user.id,
         Listen.played_at >= start_date,
         Listen.played_at < end_date
     ).all()
+    
+    result = []
+    for listen, track in listens_tracks:
+        result.append({
+            'listen': listen,
+            'track': track,
+            'mood': user.get_track_mood(track),
+            'is_custom_mood': str(track.id) in user.get_mood_overrides()
+        })
+    
+    return result
 
-def get_user_stats(user):
+def get_user_stats_with_custom_moods(user):
     """
-    Get statistics for a user
+    Get statistics for a user considering their custom mood overrides
     
     Args:
         user: User database object
         
     Returns:
-        dict: Dictionary containing user statistics
+        dict: Dictionary containing user statistics with custom moods
     """
     from datetime import timedelta
+    from collections import defaultdict
     
     # Total listens
     total_listens = Listen.query.filter_by(user_id=user.id).count()
@@ -201,11 +270,18 @@ def get_user_stats(user):
         Listen.user_id == user.id
     ).distinct().count()
     
-    # Mood distribution
-    mood_stats = db.session.query(Track.mood, db.func.count(Listen.id)).join(Listen).filter(
-        Listen.user_id == user.id,
-        Track.mood.isnot(None)
-    ).group_by(Track.mood).all()
+    # Mood distribution with custom overrides
+    listens_tracks = db.session.query(Listen, Track).join(Track).filter(
+        Listen.user_id == user.id
+    ).all()
+    
+    mood_counts = defaultdict(int)
+    for listen, track in listens_tracks:
+        mood = user.get_track_mood(track)  # Gets custom or default mood
+        if mood:
+            mood_counts[mood] += 1
+    
+    mood_stats = list(mood_counts.items())
     
     # Recent activity (last 7 days)
     week_ago = datetime.utcnow() - timedelta(days=7)
@@ -214,9 +290,13 @@ def get_user_stats(user):
         Listen.played_at >= week_ago
     ).count()
     
+    # Custom mood override count
+    custom_mood_count = len(user.get_mood_overrides())
+    
     return {
         'total_listens': total_listens,
         'unique_tracks': unique_tracks,
         'mood_stats': mood_stats,
-        'recent_activity': recent_activity
+        'recent_activity': recent_activity,
+        'custom_mood_overrides': custom_mood_count
     }

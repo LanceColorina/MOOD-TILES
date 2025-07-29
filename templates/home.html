@@ -52,7 +52,18 @@
           <strong>{{ current_song.name }}</strong><br>
           <span class="artist">{{ current_song.artist }}</span><br>
           <a href="{{ current_song.url }}" target="_blank">Open in Spotify ↗</a>
-          <span class="current-mood-label">Mood: {{ current_song.mood }}</span>
+          <div class="mood-selector-container">
+            <span class="current-mood-label">Mood:</span>
+            {% if current_song.track_id %}
+            <select class="mood-dropdown" onchange="updateMood({{ current_song.track_id }}, this.value)">
+              {% for mood in available_moods %}
+              <option value="{{ mood }}" {% if mood == current_song.mood %}selected{% endif %}>{{ mood }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <span class="mood-display">{{ current_song.mood }}</span>
+            {% endif %}
+          </div>
         </div>
         <div class="music-bars">
           <span></span><span></span><span></span><span></span>
@@ -81,7 +92,7 @@
         <a class="check" onclick="openMonthlyModal()">Check your monthly mood ➜</a>
         <div class="song-list">
         {% for song in songs %}
-        <div class="song-card {{ song.mood }}">
+        <div class="song-card {{ song.mood }}" id="song-card-{{ song.track_id }}">
             <div class="song-card-header">
                 <div class="song-title">{{ song.name }}</div>
                 {% if song.url %}
@@ -89,9 +100,21 @@
                 {% endif %}
             </div>
             <div class="song-artist">by {{ song.artist }}</div>
-            <div class="song-mood-label">Mood: {{ song.mood }}</div>
-            <div class="song-played-at">Played at {{ song.played_at }}</div>
+            
+            <div class="mood-selector-container">
+                <span class="song-mood-label">Mood:</span>
+                <select class="mood-dropdown" onchange="updateMood({{ song.track_id }}, this.value)">
+                    {% for mood in available_moods %}
+                    <option value="{{ mood }}" {% if mood == song.mood %}selected{% endif %}>{{ mood }}</option>
+                    {% endfor %}
+                </select>
+                {% if song.is_custom_mood %}
+                <span class="custom-mood-indicator" title="Custom mood">✨</span>
+                {% endif %}
             </div>
+            
+            <div class="song-played-at">Played at {{ song.played_at }}</div>
+        </div>
         {% endfor %}
         </div>
 
@@ -122,21 +145,129 @@
             </div>
         </div>
 
+    <!-- Loading Spinner (hidden by default) -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <p>Updating mood...</p>
+    </div>
+
   </div>
 </body>
 <script>
- 
+
 function closeAboutModal() {
-    document.getElementById('aboutModal').style.display = 'none';
+    const modal = document.getElementById('aboutModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 function openAboutModal() {
-  const modal = document.getElementById('aboutModal');
-  if (modal) {
-    modal.style.display = 'block';
-  }
+    const modal = document.getElementById('aboutModal');
+    if (modal) {
+        modal.style.display = 'block';
+    }
 }
 
+function updateMood(trackId, newMood) {
+    // Show loading spinner
+    document.getElementById('loadingSpinner').style.display = 'flex';
+    
+    fetch('/update-mood', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            track_id: trackId,
+            mood: newMood
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide loading spinner
+        document.getElementById('loadingSpinner').style.display = 'none';
+        
+        if (data.success) {
+            // Update the song card's CSS class to reflect new mood
+            const songCard = document.getElementById('song-card-' + trackId);
+            if (songCard) {
+                // Remove all existing mood classes
+                const moodClasses = ['Angry 😠', 'Energetic 🔥', 'Happy 😊', 'Chill 😎', 'Calm 🧘', 'Sad 😢', 'Depressed 😞', 'Unknown 🤷'];
+                moodClasses.forEach(mood => {
+                    songCard.classList.remove(mood.replace(' ', '-').replace('😠', '').replace('🔥', '').replace('😊', '').replace('😎', '').replace('🧘', '').replace('😢', '').replace('😞', '').replace('🤷', '').trim());
+                });
+                
+                // Add new mood class (simplified class name)
+                const simplifiedMood = newMood.split(' ')[0].toLowerCase();
+                songCard.classList.add(simplifiedMood);
+                
+                // Add custom mood indicator if it doesn't exist
+                const moodContainer = songCard.querySelector('.mood-selector-container');
+                let customIndicator = moodContainer.querySelector('.custom-mood-indicator');
+                if (!customIndicator) {
+                    customIndicator = document.createElement('span');
+                    customIndicator.className = 'custom-mood-indicator';
+                    customIndicator.title = 'Custom mood';
+                    customIndicator.textContent = '✨';
+                    moodContainer.appendChild(customIndicator);
+                }
+            }
+            
+            // Show success message
+            showNotification('Mood updated successfully!', 'success');
+        } else {
+            // Show error message
+            showNotification('Error updating mood: ' + (data.error || 'Unknown error'), 'error');
+            
+            // Revert dropdown to original value
+            const dropdown = document.querySelector(`select[onchange*="${trackId}"]`);
+            if (dropdown) {
+                // You might want to store the original value somewhere
+                console.log('Failed to update mood, consider reverting dropdown');
+            }
+        }
+    })
+    .catch(error => {
+        // Hide loading spinner
+        document.getElementById('loadingSpinner').style.display = 'none';
+        
+        console.error('Error updating mood:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+// Notification system
+function showNotification(message, type) {
+    // Remove existing notifications
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Show notification
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    // Hide notification after 3 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 3000);
+}
+
+// Monthly modal functionality
 function openMonthlyModal() {
     document.getElementById('monthlyModalOverlay').style.display = 'flex';
 }
@@ -145,10 +276,17 @@ function closeMonthlyModal() {
     document.getElementById('monthlyModalOverlay').style.display = 'none';
 }
 
+// Enhanced click-outside-to-close for both modals
 window.onclick = function(event) {
-    const overlay = document.getElementById('monthlyModalOverlay');
-    if (event.target === overlay) {
+    const monthlyOverlay = document.getElementById('monthlyModalOverlay');
+    const aboutOverlay = document.getElementById('aboutModal');
+    
+    if (event.target === monthlyOverlay) {
         closeMonthlyModal();
+    }
+    
+    if (event.target === aboutOverlay) {
+        closeAboutModal();
     }
 }
 
@@ -156,8 +294,6 @@ function refreshCurrentSong() {
     // Reload the /recent page to update the "Now Playing" section
     location.reload();
 }
-
-
 
 </script>
 
