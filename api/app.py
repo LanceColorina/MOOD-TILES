@@ -85,6 +85,7 @@ def callback():
         user = create_or_update_user(user_info, token_info)
         session['user_id'] = user.id
         session['logged_in'] = True
+        session['show_about_modal'] = True
 
         return redirect('/recent')
     except Exception as e:
@@ -96,9 +97,11 @@ def callback():
 @login_required
 def recent(sp, user):
     try:
+        
         # Get currently playing track
         current_playing = sp.current_playback()
         current_song = None
+        show_modal = session.pop('show_about_modal', False)
         try:
             current_playing = sp.current_playback()
             if current_playing and current_playing.get('is_playing'):
@@ -148,7 +151,8 @@ def recent(sp, user):
             songs=paginated_songs,
             page=page,
             total_pages=total_pages,
-            current_song=current_song
+            current_song=current_song,
+            show_modal=show_modal
         )
 
     except Exception as e:

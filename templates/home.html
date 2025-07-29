@@ -4,12 +4,14 @@
   <meta charset="UTF-8">
   <title>Spotify Listening History</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
 </head>
 <body>
-        {% if session.user_id and page >= 1%}
-        <div class="modal-overlay" id="aboutModal">
+        {% if show_modal and session.user_id and page >= 1 %}
+        <div class="modal-overlay" id="aboutModal" style="display: flex;">
         <div class="about-app">
-            <span class="close-modal" onclick="document.getElementById('aboutModal').style.display='none'">&times;</span>
+            <span class="close-modal" onclick="closeAboutModal()">&times;</span>
             <h2>About Mood Tiles</h2>
             <p>
                 <strong>MOOD Tiles</strong> is a personalized music reflection tool that helps you visualize your Spotify listening history. 
@@ -25,6 +27,9 @@
   <div class="music-container">
     <!-- NOW PLAYING -->
     <div class="music-section now-playing">
+        <button class="refresh-button" onclick="refreshCurrentSong()" title="Refresh">
+        <i class="fas fa-arrows-rotate"></i>
+        </button>
         <div class="now-playing-content">
         <h1 class="app-title">
             <span class="mood-m">M</span>
@@ -33,7 +38,9 @@
             <span class="mood-d">D</span>
             <span class="mood-tiles"> Tiles</span>
         </h1>
-      <h2>🎧 Now Playing</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>🎧 Now Playing</h2>
+        </div>
       {% if current_song %}
       <div class="current-track {{ current_song.mood }}">
         <div class="album-art ">
@@ -66,6 +73,9 @@
 
     <!-- RECENTLY PLAYED -->
     <div class="music-section recently-played">
+     <button class="about-button" onclick="openAboutModal()" title="About this app">
+            <i class="fas fa-circle-info"></i>
+        </button>
     <h1>Spotify Recently Played</h1>
     {% if songs %}
         <a class="check" onclick="openMonthlyModal()">Check your monthly mood ➜</a>
@@ -116,6 +126,17 @@
 </body>
 <script>
  
+function closeAboutModal() {
+    document.getElementById('aboutModal').style.display = 'none';
+}
+
+function openAboutModal() {
+  const modal = document.getElementById('aboutModal');
+  if (modal) {
+    modal.style.display = 'block';
+  }
+}
+
 function openMonthlyModal() {
     document.getElementById('monthlyModalOverlay').style.display = 'flex';
 }
@@ -130,6 +151,13 @@ window.onclick = function(event) {
         closeMonthlyModal();
     }
 }
+
+function refreshCurrentSong() {
+    // Reload the /recent page to update the "Now Playing" section
+    location.reload();
+}
+
+
 
 </script>
 
