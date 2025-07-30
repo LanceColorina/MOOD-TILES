@@ -330,13 +330,18 @@ def stats(sp, user):
 
 @app.route('/logout', methods=['GET'])
 def logout():
+    # Clear session variables
+    session.pop('user_id', None)
+    session.pop('token_info', None)
+    session.pop('logged_in', None)
     session.clear()
-    
+
     # Expire session cookie explicitly
     response = make_response(redirect('/login'))
     response.set_cookie('session', '', expires=0)
+    response.delete_cookie(app.session_cookie_name)
 
-    print("Session cleared.")
+    print("Session cleared and cookie expired.")
     return response
 
 # --- Initialize Database ---
