@@ -41,6 +41,7 @@ sp_oauth = SpotifyOAuth(
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
     scope="user-read-recently-played user-read-playback-state user-read-currently-playing",
+    cache_path=None,
     show_dialog=True
 )
 
@@ -79,14 +80,17 @@ def callback():
         return redirect('/login')
 
     try:
+        print("Check 1")
         # Get token and user info from Spotify
         token_info = sp_oauth.get_access_token(code)
+        print("Token info:", token_info)
         session['token_info'] = token_info
-
+        print("Check 2")
         from spotipy import Spotify
         sp = Spotify(auth=token_info['access_token'])
+        print("Check 3")
         user_info = sp.current_user()
-        
+        print("Check 4")
         # Create or update user in database
         user = create_or_update_user(user_info, token_info)
         session['user_id'] = user.id
@@ -335,11 +339,16 @@ def logout():
     session.pop('token_info', None)
     session.pop('logged_in', None)
     session.clear()
-
+    cache_file_path = ".cache"
+    if os.path.exists(cache_file_path):
+        try:
+            os.remove(cache_file_path)
+            print(".cache file removed.")
+        except Exception as e:
+            print("Error removing .cache file:", e)
     # Expire session cookie explicitly
     response = make_response(redirect('/login'))
     response.set_cookie('session', '', expires=0)
-    response.delete_cookie(app.session_cookie_name)
 
     print("Session cleared and cookie expired.")
     return response
