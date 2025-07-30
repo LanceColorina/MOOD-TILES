@@ -8,8 +8,9 @@
 
 </head>
 <body>
-        {% if show_modal and session.user_id and page >= 1 %}
-        <div class="modal-overlay" id="aboutModal" style="display: flex;">
+        {% if session.user_id and page >= 1 %}
+        <div class="modal-overlay" id="aboutModal" style="display: none;">
+
         <div class="about-app">
             <span class="close-modal" onclick="closeAboutModal()">&times;</span>
             <h2>About Mood Tiles</h2>
@@ -153,6 +154,13 @@
 
   </div>
 </body>
+{% if show_modal %}
+<script>
+  window.onload = function () {
+    openAboutModal();
+  };
+</script>
+{% endif %}
 <script>
 
 function closeAboutModal() {
@@ -165,7 +173,7 @@ function closeAboutModal() {
 function openAboutModal() {
     const modal = document.getElementById('aboutModal');
     if (modal) {
-        modal.style.display = 'block';
+        modal.style.display = 'flex';  // not block!
     }
 }
 
@@ -237,6 +245,7 @@ function updateMood(trackId, newMood) {
     });
 }
 
+
 // Notification system
 function showNotification(message, type) {
     // Remove existing notifications
@@ -295,6 +304,7 @@ function refreshCurrentSong() {
     location.reload();
 }
 
-</script>
 
+
+</script>
 </html>

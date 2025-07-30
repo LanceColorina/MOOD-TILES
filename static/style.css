@@ -601,6 +601,10 @@ a:hover {
   z-index: 9999;
 }
 
+.modal-overlay.show {
+  opacity: 1;
+}
+
 .about-app {
   background-color: #f0f8ff;
   padding: 40px 50px;
