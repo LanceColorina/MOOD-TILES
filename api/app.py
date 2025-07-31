@@ -112,7 +112,7 @@ def recent(sp, user):
         current_song = None
         show_modal = session.pop('show_about_modal', False)
         try:
-            current_playing = sp.current_playbook()
+            current_playing = sp.current_playback()
             if current_playing and current_playing.get('is_playing'):
                 track_data = current_playing['item']
                 db_track = get_or_create_track(track_data)
